@@ -1,0 +1,192 @@
+\ Файл:       menu.spf
+\ Автор:      VoidVolker
+\ Дата:       27/08/2015 10:48
+\ Версия:     1.4
+
+0
+CELL -- -menuXT
+CELL -- -menuX
+CELL -- -menuY
+CELL -- -cancel
+CONSTANT /menu
+
+: MenuShow { m \ h -- } \ ( menu -- )
+    m @ EXECUTE TO h
+
+    0   \ TrackPopupMenuEx требует хэндл окна, которое будет получать оповещения о событиях меню — для этого каким-то образом используется иконка ннкрона (этот кусок кода с дремучих времен)
+    WITH TrayIcon Z" static"  0 0 Window >R ENDWITH
+    R@ R> SetForegroundWindow DROP
+    m -menuY @ m -menuX @
+    256 h TrackPopupMenuEx  \ 0|xt
+    h DestroyMenu DROP
+
+    ?DUP IF
+        EXECUTE
+    ELSE
+        m -cancel @ ?DUP IF
+            EXECUTE
+        THEN
+    THEN
+;
+
+: MenuShowAtCursor   \ ( menu -- )
+    >R CalcMenuYX R@ -menuX !
+    R@ -menuY !
+    R> MenuShow
+;
+
+: MenuXY!   \ ( x y menu -- )
+    SWAP OVER -menuX ! -menuY !
+;
+
+: Menu:
+    CREATE
+    HERE            \ menu
+    0 , 0 , 0 , 0 ,
+    :NONAME
+    POSTPONE POPUPMENU
+;
+
+\ Хаки флагов - можно сделать пункт меню заблокированным, с галочкой, новый столбец или нормальным
+: ItemGrey       1 ['] MENUITEM 81 + DUP @ ROT OR SWAP ! ;
+: ItemDisable    2 ['] MENUITEM 81 + DUP @ ROT OR SWAP ! ;
+: ItemCheck      8 ['] MENUITEM 81 + DUP @ ROT OR SWAP ! ;
+: ItemCol       32 ['] MENUITEM 81 + DUP @ ROT OR SWAP ! ;
+: ItemBreak     64 ['] MENUITEM 81 + DUP @ ROT OR SWAP ! ;
+: ItemNormal     0 ['] MENUITEM 81 + ! ;
+\ Тоже самое для подменю
+: SubGrey        1 ['] END-POPUP 21 + DUP @ ROT OR SWAP ! ;
+: SubDisable     2 ['] END-POPUP 21 + DUP @ ROT OR SWAP ! ;
+: SubCheck       8 ['] END-POPUP 21 + DUP @ ROT OR SWAP ! ;
+: SubCol        32 ['] END-POPUP 21 + DUP @ ROT OR SWAP ! ;
+: SubBreak      64 ['] END-POPUP 21 + DUP @ ROT OR SWAP ! ;
+: SubNormal     16 ['] END-POPUP 21 + ! ;
+\ После создания пункта меню следующие пункты меню будут нормальными
+
+: ;Menu
+    POSTPONE END-MENU
+    [COMPILE] ; SWAP !
+; IMMEDIATE
+
+: Item:
+    eval-string, \ 0 PARSE [COMPILE] SLITERAL
+    [COMPILE] [NONAME
+; IMMEDIATE
+
+: Item   \ ( a u -- )
+    [COMPILE] [NONAME
+; IMMEDIATE
+
+: ;Item   \ ( xt -- )
+    [COMPILE] NONAME]
+    POSTPONE MENUITEM
+    POSTPONE ItemNormal
+; IMMEDIATE
+
+: SubMenu(
+    POSTPONE POPUP
+; IMMEDIATE
+
+: )SubMenu   \ ( a u -- )
+    POSTPONE END-POPUP
+; IMMEDIATE
+
+: )SubMenu:    \ ( -- ) ( "string" -> )
+    eval-string, \ 0 PARSE [COMPILE] SLITERAL
+    POSTPONE END-POPUP
+    POSTPONE SubNormal
+; IMMEDIATE
+
+: ----
+    POSTPONE MENUSEPARATOR
+; IMMEDIATE
+
+: Cancel
+    [COMPILE] [NONAME
+; IMMEDIATE
+
+: ;Cancel
+    DUP >R
+    [COMPILE] NONAME] POSTPONE DROP
+    OVER R> SWAP -cancel !
+; IMMEDIATE
+
+
+\EOF
+\ Пример:
+<%
+Menu: MyMenu1 \ Горизонтальное меню. Для вертикального - просто не надо использовать ItemCol и SubCol
+
+    Item: "Item 1"
+        ." Item 1 run" CR
+    ;Item
+
+    \ Делаем следующий пункт меню справа:
+    ItemCol
+    \ И добавлем ему галочку:
+    ItemCheck
+    Item: "Item 2"
+        ." Item 2 run" CR
+    ;Item
+
+
+    SubMenu(
+
+        Item: "Item 3"
+            ." Item 3 run" CR
+        ;Item
+
+        \ Добавляем разделитель - горизонтальную черту
+        ----
+
+        Item: "Item 4"
+            ." Item 4 run" CR
+        ;Item
+
+    \ Так же смещаем и подменю вправо:
+    SubCol )SubMenu: "Submenu"
+
+    Cancel
+        ." Ничего не было выбрано" CR
+    ;Cancel
+
+;Menu
+
+Menu: MyMenu2
+
+    FT-CUR FT>DD.MM.YYYY/hh:mm:ss Item
+          S" rundll32 shell32,Control_RunDLL timedate.cpl" START-APP
+    ;Item
+
+    S" COMSPEC" ENV Item
+        S" COMSPEC" ENV START-APP
+    ;Item
+
+;Menu
+
+%>
+
+#( Show_my_menu
+\ NoActive
+SingleInstance
+WatchHotKey: "{F3}"
+Action:
+MyMenu1 MenuShowAtCursor
+)#
+
+#( Show_my_menu
+\ NoActive
+SingleInstance
+WatchHotKey: "{F4}"
+Action:
+MyMenu1 MenuShow
+)#
+
+#( Show_my_menu
+\ NoActive
+SingleInstance
+WatchHotKey: "{F5}"
+Action:
+100 100 MyMenu1 MenuXY!
+MyMenu1 MenuShow
+)#

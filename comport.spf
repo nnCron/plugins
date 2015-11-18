@@ -1,0 +1,175 @@
+\ Файл:       comport.spf
+\ Автор:      VoidVolker
+\ Дата:       24/06/2012 17:25
+\ Версия:     1.1
+\ Описание:   Плагин для работы с ком-портом
+\ /ComPort  ( -- 256 ) Размер буфера для данных из ком-порта и объем читаемых данных из ком порта за раз
+\ ComPort[] ( -- addr )  Массив для данных из ком-порта
+\ ComPort#  ( -- u )  Размер прочитанных данных в ComPort[] 
+\ COM-AU ( -- az u ) Вернуть строку с данными, прочитанными из ком порта и её длину. В конце строки всегда ноль, т.к. перед чтением данных буфер очищается.
+\ COM-AZ ( -- az ) Вернуть строку с данными, прочитанными из ком порта и заканчивающуюся нулем.
+\ COM-SETTIMEOUTS ( WriteConstant WriteMultiplier ReadConstant ReadMultiplier ReadIntervalTimeout hCom -- ) Установить таймауты порта
+\ COM-PURGE ( hCom -- ) Очистить буферы порта
+\ COM-READ ( hCom -- ) Прочитать данные из ком-порта с хэндлом hCom. Данные читаются в массив ComPort[] . Число прочитанных байт в user-value переменной ComPort#
+\ COM-OPEN ( # -- hCom|0 ) Открыть порт под номером # и вернуть его идентификатор (хэндл) hCom . Если открыть порт не удалось - результатом будет ноль.
+\ COM-WRITE ( a u hCom -- ) Записать строку  a u в ком порт с хэндлом hCom
+\ COM-CLOSE ( hCom -- ) Закрыть ком порт с хэндлом hCom
+\ COM-SET ( stop data parity baud hCom -- ) Применить настройки для ком порта с хэндлом hCom
+
+\ COM@ ( hCom -- num ) Прочитать ячейку (4 байта) из ком порта hCom
+\ COMC@ ( hCom -- num ) Прочитать байт из ком порта hCom
+\ COMW@ ( hCom -- num ) Прочитать слово (2 байта) из ком порта hCom
+\ COM! ( num hCom -- ) Записать ячейку (4 байта) в ком порт hCom
+\ COMC! ( num hCom -- ) Записать байт в ком порт hCom
+\ COMW! ( num hCom -- ) Записать слово (2 байта) в ком порт hCom
+  
+\ Дополнение до четности        EVENPARITY  
+\ Бит четности всегда равен 1   MARKPARITY  
+\ Бит четности отсутствует      NOPARITY    
+\ Дополнение до нечетности      ODDPARITY   
+\ Бит четности всегда 0         SPACEPARITY 
+
+\ В общем случае алгоритм работы с ком портом сводится к следующему: 
+\ 0 VALUE hCom
+\ 1 COM-OPEN DUP \ открываем порт
+\ IF  
+  \ TO hCom 
+  \ 0 8 NOPARITY 115000 hCom COM-SET
+  \ hCom COM-PURGE
+  \ S" test string" hCom COM-WRITE
+  \ COM-READ
+  \ ." Из ком порта прочитано: " COM-AU TYPE CR
+  \ hCom COM-CLOSE
+\ ELSE 
+  \ DROP ." Ком порт не удалось открыть" CR
+\ THEN
+  
+MODULE: COMPORT-MODULE
+
+  WINAPI: BuildCommDCBA kernel32.dll
+  WINAPI: SetCommState kernel32.dll
+  WINAPI: SetCommTimeouts kernel32.dll
+  WINAPI: PurgeComm kernel32.dll
+
+  \ Массив для структуры DCB
+  USER-CREATE DCB[] 128 USER-ALLOT
+
+  \ Настройки порта
+  1 CONSTANT EVENPARITY   \ Дополнение до четности
+  2 CONSTANT MARKPARITY   \ Бит четности всегда равен 1
+  3 CONSTANT NOPARITY     \ Бит четности отсутствует
+  4 CONSTANT ODDPARITY    \ Дополнение до нечетности
+  5 CONSTANT SPACEPARITY  \ Бит четности всегда 0
+
+  : BPDS>AZ   \ ( stop data parity baud -- az ) \ Преобразует числовые параметры порта к строке вида: baud=115000 parity=E data=8 stop=0
+    S" baud=" ROT N>S S+
+    ROT
+    CASE
+      1 OF S"  parity=E data=" ENDOF
+      2 OF S"  parity=M data=" ENDOF
+      3 OF S"  parity=N data=" ENDOF
+      4 OF S"  parity=O data=" ENDOF
+      5 OF S"  parity=S data=" ENDOF
+      DUP OF S"  parity=N data=" ENDOF
+    ENDCASE
+    S+
+    ROT N>S S+
+    S"  stop=" S+
+    ROT N>S S+
+    DROP
+  ;
+  
+EXPORT
+
+  256 CONSTANT /ComPort     \ Размер буфера для данных из ком-порта и объем читаемых данных из ком порта за раз
+  USER-CREATE ComPort[] /ComPort USER-ALLOT     \ Массив для данных из ком-порта
+  USER-VALUE ComPort#                           \ Размер прочитанных данных в ComPort[] 
+  : COM-AU   \ ( -- az u ) \ Вернуть строку с данными, прочитанными из ком порта и её длину. В конце строки всегда ноль, т.к. перед чтением данных буфер очищается.
+    ComPort[] ComPort# ;
+  : COM-AZ   \ ( -- az ) \ Вернуть строку с данными, прочитанными из ком порта и заканчивающуюся нулем.
+    ComPort[] 
+  ;
+
+  \ Таймауты порта для чтения и записи
+  0
+  CELL -- -ReadIntervalTimeout
+  CELL -- -ReadTotalTimeoutMultiplier
+  CELL -- -ReadTotalTimeoutConstant
+  CELL -- -WriteTotalTimeoutMultiplier
+  CELL -- -WriteTotalTimeoutConstant
+  CONSTANT /COMMTIMEOUTS
+
+  : COM-SETTIMEOUTS   \ ( WriteConstant WriteMultiplier ReadConstant ReadMultiplier ReadIntervalTimeout hCom -- ) \ Установить таймауты порта
+    \ Все параметры в обратном порядке(стек вниз растет): таймауты передаем в апи прямо их адресом на стеке
+    >R SP@ R> SetCommTimeouts DROP
+    2DROP 2DROP DROP
+  ;
+
+  \ 0x0008 CONSTANT PURGE_RXCLEAR
+  \ 0x0004 CONSTANT PURGE_TXCLEAR
+    
+  : COM-PURGE   \ ( hCom -- ) \ Очистить буферы порта
+    \ PURGE_RXCLEAR PURGE_TXCLEAR OR
+    0xC SWAP PurgeComm DROP
+  ;
+
+  : COM-READ   \ ( hCom -- ) \ Прочитать данные из ком-порта с хэндлом hCom. Данные читаются в массив ComPort[] . Число прочитанных байт в user-value переменной ComPort#
+    ComPort[] /ComPort ERASE            \ Очищаем буфер
+    ComPort[] /ComPort ROT READ-FILE    \ u_readed ior
+    DROP TO ComPort#
+  ;
+
+  : COM@   \ ( hCom -- num ) \ Прочитать ячейку (4 байта) из ком порта hCom
+    >R 0 SP@ CELL R> READ-FILE 2DROP ;
+  : COMC@   \ ( hCom -- num ) \ Прочитать байт из ком порта hCom
+    >R 0 SP@ 1 R> READ-FILE 2DROP ;
+  : COMW@   \ ( hCom -- num ) \ Прочитать слово (2 байта) из ком порта hCom
+    >R 0 SP@ 2 R> READ-FILE 2DROP
+  ;
+  
+  : COM-OPEN   \ ( # -- hCom|0 ) \ Открыть порт под номером # и вернуть его идентификатор (хэндл) hCom
+    S>D <# 0 HOLD #S S" COM" HOLDS #> DROP \ (**)
+    >R
+    0 FILE_ATTRIBUTE_ARCHIVE ( template attrs )
+    OPEN_EXISTING
+    0 ( secur )
+    0 ( share )
+    R/W ( access=fam )
+    R> ( filename )
+    CreateFileA
+    DUP -1 = IF DROP 0 THEN
+  ;
+  \ (**) Дело в том, что в кроне есть небольшой недочет в конвертере "число > строка": в конце не дописывается ноль.
+  \ Поэтому и записываем ноль в конец буфера. В случае, если этот недочет уже исправлен, то 0 HOLD можно убрать.
+  \ Вот исправление этого бага:
+  \ # Преобразование чисел в строки с нулем в конце
+  \ : <#   <# 0 HOLD ;
+  \ : #>   #> 1- ;
+  \ : DOUBLE>S
+  \   DUP >R DABS <# #S R> SIGN #> 
+  \ ;
+  \ : N>S  S>D DOUBLE>S ;
+  
+  : COM-WRITE   \ ( a u hCom -- ) \ Записать строку  a u в ком порт с хэндлом hCom
+    WRITE-FILE DROP
+  ;
+  
+  : COM!   \ ( num hCom -- ) \ Записать ячейку (4 байта) в ком порт hCom
+    >R SP@ CELL R> WRITE-FILE 2DROP ;
+  : COMC!   \ ( num hCom -- ) \ Записать байт в ком порт hCom
+    >R SP@ 1 R> WRITE-FILE 2DROP ;
+  : COMW!   \ ( num hCom -- ) \ Записать слово (2 байта) в ком порт hCom
+    >R SP@ 2 R> WRITE-FILE 2DROP
+  ;
+  
+  : COM-CLOSE   \ ( hCom -- ) \ Закрыть ком порт с хэндлом hCom
+    CLOSE-FILE DROP
+  ;
+
+  : COM-SET   \ ( stop data parity baud hCom -- ) \ Применить настройки для ком порта с хэндлом hCom
+    >R
+    BPDS>AZ DCB[] SWAP BuildCommDCBA DROP
+    DCB[] R@ SetCommState DROP
+  ;
+
+;MODULE

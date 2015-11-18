@@ -1,0 +1,278 @@
+\ Файл:       registry.spf
+\ Автор:      VoidVolker
+\ Дата:       05/11/2011 21:01
+\ Версия:     1.1
+\ Описание:   Работа с реестром: чтение/запись, удаление значений/ключей.
+
+MODULE: REGISTRY_MODULE
+
+  \ ----------
+  \ Максимальный размер элементов реестра (Registry Element Size Limits)
+  \ Имя ключа         255 символов
+  \ Имя значения      16383 символа; Windows 2000:  260 ANSI символов или 16383 юникод-символов
+  \ Значение          Вся доступная память (последний формат); 1 МБ (стандартный формат)
+  \ Дерево            Максимум 512 уровней. За один апи-вызов можно сосздать не более 32-ух уронвей.
+
+  0x80000000 CONSTANT HKEY_CLASSES_ROOT           HKEY_CLASSES_ROOT        CONSTANT HKCR
+  0x80000001 CONSTANT HKEY_CURRENT_USER           HKEY_CURRENT_USER        CONSTANT HKCU
+  0x80000002 CONSTANT HKEY_LOCAL_MACHINE          HKEY_LOCAL_MACHINE       CONSTANT HKLM
+  0x80000003 CONSTANT HKEY_USERS                  HKEY_USERS               CONSTANT HKU
+  0x80000004 CONSTANT HKEY_PERFORMANCE_DATA       HKEY_PERFORMANCE_DATA    CONSTANT HKPD
+  0x80000050 CONSTANT HKEY_PERFORMANCE_TEXT       HKEY_PERFORMANCE_TEXT    CONSTANT HKPT
+  0x80000060 CONSTANT HKEY_PERFORMANCE_NLSTEXT    HKEY_PERFORMANCE_NLSTEXT CONSTANT HKPN
+  0x80000005 CONSTANT HKEY_CURRENT_CONFIG         HKEY_CURRENT_CONFIG      CONSTANT HKCC
+  0x80000006 CONSTANT HKEY_DYN_DATA               HKEY_DYN_DATA            CONSTANT HKDD
+
+  0x103 CONSTANT ERROR_NO_MORE_ITEMS
+  0xEA  CONSTANT ERROR_MORE_DATA
+
+  \ #define ERROR_SUCCESS                   0
+  \ #define ERROR_FILE_NOT_FOUND            2
+  \ #define ERROR_ACCESS_DENIED             5
+  \ #define ERROR_INVALID_HANDLE            6
+  \ #define ERROR_NOT_ENOUGH_MEMORY         8
+  \ #define ERROR_BAD_UNIT                  20
+  \ #define ERROR_SEEK                      25
+  \ #define ERROR_SHARING_VIOLATION         32
+  \ #define ERROR_DUP_NAME                  52
+  \ #define ERROR_INVALID_PARAMETER         87
+  \ #define ERROR_DISK_FULL                 112
+  \ #define ERROR_INSUFFICIENT_BUFFER       122
+  \ #define ERROR_ALREADY_EXISTS            183
+  \ #define ERROR_NO_DATA                   232
+  \ #define ERROR_NO_MORE_ITEMS             259
+  \ #define ERROR_KEY_DELETED               1018
+  \ #define INVALID_HANDLE_VALUE          ((HANDLE)-1)
+  \ #define INVALID_FILE_SIZE             ((DWORD)0xFFFFFFFF)
+
+  \ !define KEY_QUERY_VALUE          0x0001
+  \ !define KEY_ENUMERATE_SUB_KEYS   0x0008
+
+  0 CONSTANT REG_NONE                 REG_NONE                CONSTANT RK-NONE
+  1 CONSTANT REG_SZ                   REG_SZ                  CONSTANT RK-SZ
+  2 CONSTANT REG_EXPAND_SZ            REG_EXPAND_SZ           CONSTANT RK-ESZ
+  3 CONSTANT REG_BINARY               REG_BINARY              CONSTANT RK-BIN
+  4 CONSTANT REG_DWORD                REG_DWORD               CONSTANT RK-DW
+  4 CONSTANT REG_DWORD_LITTLE_ENDIAN  REG_DWORD_LITTLE_ENDIAN CONSTANT RK-DWLE
+  5 CONSTANT REG_DWORD_BIG_ENDIAN     REG_DWORD_BIG_ENDIAN    CONSTANT RK-DWBE
+  6 CONSTANT REG_LINK                 REG_LINK                CONSTANT RK-LINK
+  7 CONSTANT REG_MULTI_SZ             REG_MULTI_SZ            CONSTANT RK-MSZ
+
+  \ 0xF003F CONSTANT KEY_ALL_ACCESS 
+  \ 0x0020 CONSTANT KEY_CREATE_LINK 
+  \ 0x0004 CONSTANT KEY_CREATE_SUB_KEY 
+  \ 0x0008 CONSTANT KEY_ENUMERATE_SUB_KEYS 
+  \ 0x20019 CONSTANT KEY_EXECUTE    
+  \ 0x0010 CONSTANT KEY_NOTIFY    
+  \ 0x0001 CONSTANT KEY_QUERY_VALUE    
+  \ 0x20019 CONSTANT KEY_READ    
+  \ 0x0002 CONSTANT KEY_SET_VALUE    
+  0x0200 CONSTANT KEY_WOW64_32KEY
+  0x0100 CONSTANT KEY_WOW64_64KEY
+  \ 0x20006 CONSTANT KEY_WRITE 
+
+  KEY_WOW64_32KEY VALUE WOW64_KEY
+
+  \ WINAPI: RegCloseKey Advapi32.dll
+  WINAPI: RegConnectRegistryA Advapi32.dll
+  \ WINAPI: RegCreateKeyExA Advapi32.dll
+  \ \ WINAPI: RegDeleteKeyExA Advapi32.dll
+  WINAPI: RegDeleteKeyA Advapi32.dll
+  \ WINAPI: RegDeleteValueA Advapi32.dll
+  WINAPI: RegEnumKeyExA Advapi32.dll
+  WINAPI: RegEnumValueA Advapi32.dll
+  \ WINAPI: RegQueryValueExA Advapi32.dll
+  \ WINAPI: RegOpenKeyExA Advapi32.dll
+  \ WINAPI: RegSetValueExA Advapi32.dll
+
+  USER-VALUE RK-FOR-PAD
+  
+EXPORT
+
+  : WOW64_32KEY   KEY_WOW64_32KEY TO WOW64_KEY  ;
+  : WOW64_64KEY   KEY_WOW64_64KEY TO WOW64_KEY  ;
+  USER-VALUE RK-ERROR  \ Результат работы апи с реестром
+  10240 CONSTANT /RK-PAD
+  USER-CREATE RK-PAD /RK-PAD CELL+ ALLOT   \ Буфер для данных - значений параметров и прочее
+  USER RK-PAD#
+
+  : RK-CLOSE   \ ( hKey -- ) \ Закрыть ключ реестра, идентифицируемый хэндлом hKey
+    RegCloseKey TO RK-ERROR ;
+
+  : RK-CONNECT   \ ( hkey az_computername -- hkey1|0 ) \ az = \\computername
+    0 SP@ 2SWAP RegConnectRegistryA TO RK-ERROR
+  ;
+
+  : RK-CREATE   \ ( az_subkey hkey -- hkey1|0 )
+  \ Приложение не может создавать ключ под HKEY_USERS или HKEY_LOCAL_MACHINE.
+    2>R 0 SP@
+    0 SWAP 0 0xF003F 0 0 0 2R> 
+    RegCreateKeyExA TO RK-ERROR
+  ;
+
+  : RK-DELETE   \ ( az_subkey hkey -- )
+    \ 0 0 2SWAP SWAP RegDeleteKeyExA TO RK-ERROR
+    RegDeleteKeyA TO RK-ERROR
+  ;
+
+  : RV-DELETE   \ ( az_valname hkey -- )
+    RegDeleteValueA TO RK-ERROR
+  ;
+
+  : RK-ENUM  \ ( i hkey -- a u )
+    2>R
+    RK-PAD /RK-PAD SP@ >R
+    0 0 0 0 R> RK-PAD 2R> RegEnumKeyExA TO RK-ERROR
+    RK-ERROR IF
+      2DROP ""
+    THEN
+  ;
+
+  : FOUND-KEY  \ ( -- a u )
+    RK-FOR-PAD XCOUNT
+    \ 2DUP + OFF  \ Записываем в конец строки 4 нуля на всякий случай
+  ;
+
+  : FOUND-KEYI   \ ( -- i )
+    RK-FOR-PAD CELL- @
+  ;
+
+DEFINITIONS
+
+  : (FOR-SUBKEYS)   \ ( hkey xt -- )
+    { hkey xt -- }
+    RK-FOR-PAD >R \ Сохраняем адрес текущего буфера - для вложенных случаев
+    
+    /RK-PAD 2 CELLS + ALLOCATE THROW \ Выделяем память для параметров: индекс - ячейка -1; длина - ячейка 0; буфер под строку - ячейка +1, /RK-PAD
+    DUP >R                  \ Сохраняем на стеке возвратов адрес буфера под индекс
+    CELL+ TO RK-FOR-PAD     \ Сохраняем адрес буфера
+    
+    BEGIN
+      /RK-PAD RK-FOR-PAD !    \ Записываем в буфер максимальную длину строки; сюда же апи запишет длину результирующей строки
+      0 0 0 0 RK-FOR-PAD DUP CELL+ R@ @ hkey    \ Кладем все параметры необходимые для вызова апи
+      RegEnumKeyExA TO RK-ERROR                 \ Вызываем апи
+    \ RK-ERROR ERROR_NO_MORE_ITEMS <> WHILE       \ До тех пор, пока не закончатся все элементы
+    RK-ERROR 0= WHILE       \ До первой ошибки
+      xt EXECUTE                                \ Выполняем код
+      R@ 1+!                                    \ Увеличиваем счетик
+    REPEAT
+    
+    R> FREE THROW
+    R> TO RK-FOR-PAD 
+  ;
+
+EXPORT
+
+  : FOR-SUBKEYS
+    POSTPONE [NONAME
+  ; IMMEDIATE
+
+  : ;FOR-SUBKEYS
+    POSTPONE NONAME]
+    POSTPONE (FOR-SUBKEYS)
+  ; IMMEDIATE
+
+
+  : FOUND-VALNAME  \ ( -- a u ) \ Имя найденного значения
+    RK-FOR-PAD XCOUNT
+    \ 2DUP + OFF  \ Записываем в конец строки 4 нуля на всякий случай
+  ;
+
+  : FOUND-VALINDEX   \ ( -- i ) \ Индекс найденного значения
+    RK-FOR-PAD CELL- @
+  ;
+
+  : FOUND-VALTYPE   \ ( -- type ) \ Тип найденного значения
+    RK-FOR-PAD 2 CELLS - @
+  ;
+
+DEFINITIONS
+
+  : (FOR-VALUES)   \ ( hkey xt -- )
+    { hkey xt -- }
+    RK-FOR-PAD >R \ Сохраняем адрес текущего буфера - для вложенных случаев
+    
+    /RK-PAD 3 CELLS + ALLOCATE THROW \ Выделяем память для параметров:
+    \ тип значеня - ячейка -2; индекс - ячейка -1; длина - ячейка 0; буфер под строку - ячейка +1, /RK-PAD
+    CELL+
+    DUP >R                  \ Сохраняем на стеке возвратов адрес буфера под индекс
+    CELL+ TO RK-FOR-PAD     \ Сохраняем адрес буфера
+    
+    BEGIN
+      /RK-PAD RK-FOR-PAD !    \ Записываем в буфер максимальную длину строки; сюда же апи запишет длину результирующей строки
+      0 0 R@ CELL- 0 RK-FOR-PAD DUP CELL+ R@ @ hkey    \ Кладем все параметры необходимые для вызова апи
+      RegEnumValueA TO RK-ERROR                 \ Вызываем апи
+    \ RK-ERROR ERROR_NO_MORE_ITEMS <> WHILE       \ До тех пор, пока не закончатся все элементы
+    RK-ERROR 0= WHILE       \ До первой ошибки
+      xt EXECUTE                                \ Выполняем код
+      R@ 1+!                                    \ Увеличиваем счетик
+    REPEAT
+    
+    R> CELL- FREE THROW       \ Освобождаем память
+    R> TO RK-FOR-PAD    \ Восстанавливаем исходное значение RK-FOR-PAD
+  ;
+
+EXPORT
+
+  : FOR-VALUES
+    POSTPONE [NONAME
+  ; IMMEDIATE
+
+  : ;FOR-VALUES
+    POSTPONE NONAME]
+    POSTPONE (FOR-VALUES)
+  ; IMMEDIATE
+
+  : RSK-OPEN   \ ( az_keyname hkey -- )
+    2>R 0 
+    SP@ 0xF003F 0 2R> RegOpenKeyExA TO RK-ERROR
+  ;
+
+  : RK-VALUE@   \ ( az_valuename hkey -- a uz type ) 
+  \ Пометка: для SZ, MULTI_SZ, EXPAND_SZ u включает в себя еще и ноль в конце, поэтому и обозначается как uz
+    2>R
+    RK-PAD /RK-PAD SP@ >R 0         \ a u type R: 'u 
+    SP@ R>  RK-PAD  ROT  0  2R>     \ a u type  'u a 'type 0 az_valname hkey
+    RegQueryValueExA TO RK-ERROR
+  ;
+
+  : RK-VALUE!   \ ( a uz type az_valname hkey -- )
+    2>R
+    >R SWAP R> 0 2R> RegSetValueExA TO RK-ERROR
+  ;
+
+  : RK-TVALUE!    \ ( a uz a_name u_name hkey type -- )
+    2>R DROP 2R> -ROT   \ a uz type az_name hkey 
+  ;
+
+  : RK-NONE!   \ ( a uz a_name u_name hkey -- )
+    RK-NONE RK-TVALUE! ;
+  : RK-SZ!     \ ( a u a_name u_name hkey -- )
+    SP@ 3 CELLS + 1+!  \ Увеличиваем длину строки на один(ноль в конце) - требование винапи
+    RK-SZ RK-TVALUE! ;
+  \ Может сделать конвертер a_u <-> esz,msz,a_uz ...
+  : RK-ESZ!    \ ( a uz a_name u_name hkey -- )
+    RK-ESZ RK-TVALUE! ;
+  : RK-MSZ!    \ ( a uz a_name u_name hkey -- )
+    RK-MSZ RK-TVALUE! ;
+
+  : RK-BIN!    \ ( a u a_name u_name hkey -- )
+    RK-BIN RK-TVALUE! ;
+
+
+  : RK-DW!     \ ( value a_name u_name hkey -- )
+    RK-DW 2>R 2>R SP@ 4
+    RK-TVALUE!
+    DROP ;
+  : RK-DWLE!   \ ( value a_name u_name hkey -- )
+    RK-DW 2>R 2>R SP@ 4
+    RK-TVALUE!
+    DROP ;
+  : RK-DWBE!   \ ( value a_name u_name hkey -- )
+    RK-DW 2>R 2>R SP@ 4
+    RK-TVALUE!
+    DROP ;
+  : RK-LINK!   \ ( a u a_name u_name hkey -- )
+    RK-LINK RK-TVALUE! ;
+
+;MODULE

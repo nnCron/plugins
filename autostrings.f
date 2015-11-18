@@ -1,0 +1,441 @@
+\ Файл:       Autostrings.spf
+\ Автор:      VoidVolker
+\ Дата:       20/03/2012 18:03
+\ Версия:     3.8
+\ Описание:
+\  Строки с саморазворачивающимися подстроками и эскейп-последовательностями.
+\ 1. Строка вида  
+\     " Число: %12345 N>S% Текстовая переменная: %ACTIVE-WINDOW% |nПеревод строки|n |qКавычки|q"
+\   разворачивается в следующий код:
+\     S" Число: " 12345 N>S S+  S" Текстовая переменная: " S+ ACTIVE-WINDOW S+
+\     S"  |nПеревод строки|n |qКавычки|q" S+
+\   В режиме компиляции подстрокам между % и % сразу же делается EVALUATE (т.е. код компилируется)
+\   и далее автоматически компилируется S+
+\   В режиме интерпретации код в подстроках просто интерпретируется, а S+ выполняется
+\   Длина строк может быть более 255 символов.
+\ 2. Поддерживаются т.н. "эскейп-последовательности" - т.е. определенные последовательности
+\   символов будут сразу же заменяться на соответсвующие им символы.
+\     \   ->  
+\     \\  ->  \
+\     \p  ->  %
+\     \q  ->  "
+\     \t  ->  <табуляция> 9
+\     \v  ->  <вертикальная табуляция> 0xB
+\     \r  ->  <возврат картеки>  0xD
+\     \n  ->  <перевод строки> crlf  0x0D0A
+\ Так же добавлены слова s" z" c" c поддержкой эскейп-последовательностей
+\ Отличия от стандартных строк:
+\   Во время выполнения кода в подстроках на стеке лежит собираемая строка;
+\   Для чисел необходимо принудительно делать N>S - контроль глубины стека отсутствует, 
+\    т.е. код ОБЯЗАН ВОЗВРАЩАТЬ СТРОКУ, иначе будет исключение.
+\ Автоматическая уборка мусора: после сложения двух строк запоминается адрес новой строки, и после
+\    следующего сложения строк, адрес предыдущей строки освобождается. Для освобождения строки,
+\    полученной в итоге, следует использовать слово LAS-FREE
+\ LAS-FREE   \ ( -- ) \ Освободить память, занятую словом S+ при сложении строк.
+\ Сборщик мусора для слова S+
+\  TRASH(   \ ( -- ) \ Начать сбор мусора. Все строки, созданные словом S+ будут попадать в корзину. 
+\ Для ручного добавления или извлечения адресов используйте слова TRASH! и TRASH@ (только адреса,
+\ выделенные словом ALLOCATE)
+\  )TRASH   \ ( -- ) \ Закончить сбор мусора. Все адреса, находящиеся в корзине будут освобождены. Слово S+ больше не будет добавлять адреса в корзину.
+\  TRASH!   \ ( addr -- ) \ Отправить адрес со стека в корзину. Только между слов TRASH( и )TRASH
+\  TRASH@   \ ( -- addr ) \ Получить адрес из корзины.  Только между слов TRASH( и )TRASH
+
+REQUIRE CASE lib/ext/case.f
+REQUIRE {       ~ac\lib\locals.f
+: XCOUNT DUP CELL+ SWAP @ ;
+
+MODULE: AUTOSTRINGS_MODULE
+  \ ### Поддержка эскейп-последовательностей ###
+
+  USER esc-u1
+  USER esc-a1
+
+  : esc-c,
+    esc-a1 @ C!
+    esc-a1 1+!
+  ;
+
+EXPORT
+
+  : resolve-escape   \ ( a u a1 -- a1 u1 )
+    esc-a1 !        \ a u
+    2DUP +          \ a u ae
+    SWAP esc-u1 !   \ a ae
+    SWAP            \ ae a
+    BEGIN           \ ae a
+      DUP C@ DUP [CHAR] \ =
+        IF  \ ae a char
+          DROP DUP 1+ C@ CASE
+            [CHAR] \ OF [CHAR] \ esc-c, 1+ -1 esc-u1 +! ENDOF
+            [CHAR] p OF [CHAR] % esc-c, 1+ -1 esc-u1 +! ENDOF
+            [CHAR] q OF [CHAR] " esc-c, 1+ -1 esc-u1 +! ENDOF
+            [CHAR] t OF   9 esc-c, 1+ -1 esc-u1 +! ENDOF
+            [CHAR] v OF 0xB esc-c, 1+ -1 esc-u1 +! ENDOF
+            [CHAR] r OF 0xD esc-c, 1+ -1 esc-u1 +! ENDOF
+            [CHAR] n OF 0xD esc-c, 0xA esc-c, 1+ ENDOF
+            DUP OF ENDOF
+          ENDCASE
+        ELSE
+          esc-c,
+        THEN
+        1+
+      2DUP =
+    UNTIL
+    2DROP
+    esc-a1 @ esc-u1 @ - esc-u1 @
+    0 esc-c,
+  ;
+
+  : _sliteral-code
+    R>      \ acnt
+    XCOUNT  \ astr u
+    2DUP    \ astr u astr u
+    +       \ astr u astr+u
+    1+      \ astr u astr+u+1
+    >R      \ astr u
+  ;
+  
+  : _zliteral-code
+    R> XCOUNT
+    OVER + 1+
+    >R
+  ;
+  
+  : sliteral  \ ( a u -- ) \ Использует счетчик в 4 байта, что позволяет работать со строками до 4 Гб.
+    STATE @
+      IF
+        ['] _sliteral-code COMPILE,
+        HERE >R 0 ,      \ a u R: a1 \ Отмечаем адрес счетчика и резервируем для него место
+        HERE resolve-escape \ a1 u1 \ Вычисляем эскейп-последовательности
+        DUP ALLOT        \ a1 u1 \ резервируем память, занятую новой строкой
+        0 C,
+        R> !                \ a1    \ сохраняем счетчик
+        DROP                \ убираем адрес
+      ELSE
+        2DUP + 0 SWAP C!
+        OVER resolve-escape
+      THEN
+  ; IMMEDIATE
+
+DEFINITIONS
+
+  \ ### Сборщик мусора для слова S+ ###
+  1024 CONSTANT /TRASH                \ Объем корзины, 1-ая ячейка - текущий объем, -1-ая - предыдущая корзина
+  USER-VALUE TRASH                    \ Корзина, фактически - переменная, по сути - стек
+  USER-VALUE las-addr
+  
+EXPORT
+
+  : TRASH!   \ ( addr -- ) \ Отправить адрес со стека в корзину. Только между слов TRASH( и )TRASH
+    TRASH @ /TRASH <
+    IF
+      TRASH 1+!
+      TRASH  TRASH @ CELLS  +  !
+    ELSE
+      DROP ABORT" Переполнение корзины! Увеличьте объем корзины для сборки мусора. Константа /TRASH"
+    THEN
+  ;
+  
+  : TRASH@   \ ( -- addr ) \ Получить адрес из корзины.  Только между слов TRASH( и )TRASH
+    TRASH @
+    IF
+      TRASH  TRASH @ CELLS  + @
+      -1 TRASH +!
+    ELSE
+      ABORT" Корзина пустая! Нельзя извлечь то, чего нет."
+    THEN
+  ;
+
+  : STR+ { a1 u1 a2 u2 -- a3 u3 } \ Сложить две строки, добавить адрес новой строки в корзину
+    u1 u2 + DUP 1+ ALLOCATE THROW
+    a1 OVER u1 CMOVE
+    a2 OVER u1 + u2 CMOVE
+    TRASH IF DUP TRASH! THEN
+    DUP TO las-addr
+    SWAP
+  ;
+  
+  : TRASH-FREE   \ ( -- ) \ Очистить корзину
+    TRASH @ IF
+      TRASH CELL+ TRASH @ CELLS + TRASH CELL+ DO
+        I @ FREE THROW
+      CELL +LOOP
+    THEN
+  ;
+
+  : LAS-FREE   \ ( -- ) \ Освободить память, занятую словом S+ при сложении строк.
+    las-addr IF las-addr FREE THROW THEN
+  ;
+  
+  : TRASH(   \ ( -- ) \ Начать сбор мусора. Все строки, созданные словом S+ будут попадать в корзину. Для ручного добавления или извлечения адресов используйте слова TRASH! и TRASH@ (только адреса, выделенные словом ALLOCATE)
+    /TRASH CELLS ALLOCATE THROW
+    TRASH OVER ! CELL+ TO TRASH
+  ;
+  
+  : )TRASH   \ ( -- ) \ Закончить сбор мусора. Все адреса, находящиеся в корзине будут освобождены. Слово S+ больше не будет добавлять адреса в корзину.
+    TRASH-FREE
+    TRASH CELL - DUP @ TO TRASH 
+    FREE THROW
+  ;
+
+  
+DEFINITIONS
+  
+  \ ### Автостроки ###
+  USER-VECT <astr-literal>
+  
+  USER astra      \ Начальный адрес строки для разбора
+  USER astru      \ Длина строки для разбора
+  USER astrea     \ Конечный адрес строки для разбора
+  USER astrla     \ Адрес последней обработанной строки
+  USER astrings   \ Счетчик подстрок - позволяет избавляться от пустых подстрок
+
+EXPORT
+
+  : (s+)1  \ Интепретируем S+ только если на стеке 2 строки
+    astrings @ 2 =
+      IF
+        STATE @
+          IF
+            POSTPONE STR+
+          ELSE
+            STR+
+          THEN
+        1 astrings !
+      THEN
+  ;
+  
+  VECT (s+)
+  ' (s+)1 TO (s+)
+  
+DEFINITIONS
+
+  : interpret-code   \ ( a u -- )
+    EVALUATE
+    astrings 1+! (s+)
+  ;
+
+  : interpret-str   \ ( a u -- ) \ Интерпретировать строку и слово S+
+    DUP
+      IF
+        astrings 1+!
+        [COMPILE] sliteral
+        (s+)
+      ELSE
+        2DROP
+      THEN
+  ;
+
+  USER-VECT <subst-resolve>
+  0 VALUE (code-resolve)'
+  0 VALUE (str-resolve)'
+
+  : (code-resolve)   \ ( i -- )  \ Обработали код(подстрока)
+    (str-resolve)' TO <subst-resolve>
+    >R
+    astrla @ 1+ R@ OVER - \ Получаем строку
+    interpret-code        \ Интерпретируем код
+    R> 1+ astrla !        \ Сохраняем текущий адрес
+  ;
+  ' (code-resolve) TO (code-resolve)'
+
+  : (str-resolve)   \ ( i -- )  \ Обработали строку
+    (code-resolve)' TO <subst-resolve>
+    >R
+    astrla @ R@ OVER -    \ Получаем строку
+    interpret-str         \ Интерпретируем строку
+    R> astrla !           \ Сохраняем текущий адрес
+  ;
+  ' (str-resolve) TO (str-resolve)'
+
+EXPORT
+
+  : )ATRASH
+    \ Результирующую строку убираем из корзины
+    TRASH @ IF TRASH@ TO las-addr THEN
+    )TRASH
+  ;
+  
+  : "" S" " ;   \ Пустая строка - слово лишним не будет
+
+  : ASTR   \ ( a1 u1 -- a2 u2 )
+    DUP
+      IF
+        \ Инициализируем переменные и векторы
+        0 astrings !
+        (str-resolve)' TO <subst-resolve>
+        2DUP + astrea !
+        astru ! DUP astra ! astrla !
+        \ Открываем корзину
+        STATE @
+          IF
+            POSTPONE TRASH(
+          ELSE
+            TRASH(
+          THEN
+          
+        \ Обрабатываем строку в цикле
+        astrea @ astra @ DO
+          I C@ [CHAR] % =             \ Подстрока?
+            IF
+              I <subst-resolve>
+            THEN
+        LOOP
+        
+        \ И интерпретируем последний кусочек строки
+        astrla @ astrea @ OVER - interpret-str
+        \ Закрываем корзину
+        STATE @
+          IF
+            POSTPONE )ATRASH
+          ELSE
+            )ATRASH
+          THEN
+      ELSE
+        [COMPILE] SLITERAL
+      THEN
+  ;
+  
+  \ USER-CREATE StringBuf 10240 USER-ALLOT
+  \ USER StringBuf#
+  \ StringBuf# 0!
+  \ StringBuf 10240 ERASE
+  
+  \ : JRECURSE   \ Рекурсия без возрата - т.е. джампом. Ибо обычная рекурсия с возратом - т.е. 
+    \ ?COMP
+    \ LATEST NAME> 
+    \ 0xE9 C,
+    \ HERE CELL+ - ,
+  \ ; IMMEDIATE
+  
+  : "   \ ( -- a u ) ( " строка" -> )
+    \ Парсим строку
+    [CHAR] " PARSE    \ a u
+    \ 2DUP +
+    \ 1- DUP C@ DUP EMIT [CHAR] \ =
+    \ SWAP 1- C@ DUP EMIT [CHAR] \ <> AND CR
+    \ IF
+      \ ." >" CR
+      \ 1- StringBuf StringBuf# @ + SWAP 
+      \ DUP StringBuf# +!
+      \ CMOVE
+      \ REFILL IF JRECURSE THEN
+      \ StringBuf StringBuf# @
+    \ ELSE
+      \ StringBuf# @
+      \ IF
+        \ ."  *** " StringBuf StringBuf# @ . . CR
+        \ StringBuf StringBuf# @ + SWAP 
+        \ DUP StringBuf# +!
+        \ CMOVE
+        \ StringBuf StringBuf# @
+      \ THEN
+    \ THEN
+    
+    ASTR
+    
+    \ StringBuf# 0!
+    \ StringBuf 10240 ERASE
+  ; IMMEDIATE
+
+  WINAPI: MultiByteToWideChar   KERNEL32.DLL
+  WINAPI: WideCharToMultiByte   KERNEL32.DLL
+  65001 CONSTANT CP_UTF8
+  USER UnicodeBuf
+
+  : >UNICODE ( addr u -- addr2 u2 )
+    DUP 2* CELL+ ALLOCATE DROP UnicodeBuf !
+    SWAP >R
+    DUP 2* CELL+ UnicodeBuf @ ROT R> 0 ( flags) 0 ( CP_ACP)
+    MultiByteToWideChar
+    UnicodeBuf @ 
+    SWAP 2* 
+    2DUP + 0 SWAP W!
+  ;
+  : UNICODE> ( addr u -- addr2 u2 )
+  \ на входе - длина в байтах, а WideCharToMultiByte хочет к-во символов
+    2 /
+    1+ \ 0 в конце тоже считаем, т.к. он есть в результ.строке
+    >R >R 0 0 R> R>
+    DUP CELL+ ALLOCATE DROP UnicodeBuf ! \ 0 0 addr len
+    SWAP >R                        \ 0 0 len
+    DUP CELL+ UnicodeBuf @         \ 0 0 len len+4 mem
+    ROT ( можно поствить DROP -1 для авторасчета длины) 
+    R>                             \ 0 0 len+4 mem len addr
+    0 ( flags) 0 ( CP_ACP)
+    WideCharToMultiByte
+    UnicodeBuf @ 
+    SWAP 1-
+  ;
+  : UTF8>UNICODE ( addr u -- addr2 u2 )
+    DUP 2* CELL+ ALLOCATE DROP UnicodeBuf !
+    SWAP >R
+    DUP 2* CELL+ UnicodeBuf @ ROT R> 0 ( flags) CP_UTF8
+    MultiByteToWideChar
+    UnicodeBuf @ 
+    SWAP 2* 
+    2DUP + 0 SWAP W!
+  ;
+  : UNICODE>UTF8 ( addr u -- addr2 u2 )
+  \ на входе - длина в байтах, а WideCharToMultiByte хочет к-во символов
+    2 /
+    1+ \ 0 в конце тоже считаем, т.к. он есть в результ.строке
+    >R >R 0 0 R> R>
+    2* DUP CELL+ ALLOCATE DROP UnicodeBuf ! \ 0 0 addr len
+    SWAP >R                        \ 0 0 len
+    DUP CELL+ UnicodeBuf @         \ 0 0 len len+4 mem
+    ROT 2 / ( можно поствить DROP -1 для авторасчета длины) 
+    R>                             \ 0 0 len+4 mem len addr
+    0 ( flags) CP_UTF8
+    WideCharToMultiByte
+    UnicodeBuf @ 
+    SWAP 1-
+  ;
+  : >UTF8  ( addr u -- addr2 u2 )
+    >UNICODE OVER >R UNICODE>UTF8 R> FREE THROW
+  ;
+  : UTF8> ( addr u -- addr2 u2 )
+    UTF8>UNICODE UNICODE>
+  ;
+
+  : autostrings.init ;
+  : autostrings.exit ;
+  
+  : U"
+    [CHAR] " PARSE >UTF8
+    [COMPILE] SLITERAL
+  ; IMMEDIATE
+  
+  \ : [S:]
+    \ BEGIN WHILE
+    
+    \ REPEAT
+  \ ;
+  
+  \ : [:S]
+  
+  \ ;
+  
+;MODULE
+
+\ Тесты скорости
+\ WINAPI: GetTickCount kernel32.dll
+
+\ : t1
+  \ GetTickCount
+  \ 10000 0 DO
+    \ S" Число:%12345% %QUOTE%Кавычки%QUOTE%%CRLF%Перевод строки%CRLF%Процент %PERCENT%" EVAL-SUBST
+    \ 2DROP
+  \ LOOP
+  \ GetTickCount - ABS .
+\ ;
+
+\ : t2
+  \ GetTickCount
+  \ 1000000 0 DO
+    \ " Число:%12345 N>S% |qКавычки|q|nПеревод строки|nПроцент |p\
+    \ 12345"
+    \ 2DROP
+  \ LOOP
+  \ GetTickCount - ABS . CR
+\ ;

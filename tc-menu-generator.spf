@@ -1,0 +1,206 @@
+\ Файл[File]:             tc-menu-generator.spf
+\ Автор[Author]:          VoidVolker
+\ Дата[Date]:             30/07/2009 10:30
+\ Описание[Description]:  Генератор пользовательских меню для Total Commander. 
+\ При перечитывании кронтаба создает файл описания меню со списком задач ннкрона.
+\ Возможно создание меню как выбранной группы задач, так и всех задач ннкрона.
+
+\ Использование - в кронтабе за пределами задачи в секции <% ... %>
+\ Имеется фильтр на задачи вида CLASSIC-TASK-#-xxx - они также не добавляются в меню, и
+\ есть возможность вставки разделителя.
+
+\ Создание меню из группы задач:
+\ <% S" C:\<путь к TC>\nncron-tasks.bar" TC-MENU: <Название меню с любыми символами до конца строки>
+\ %>
+
+\  < ... Задачи кронтаба для отображения в меню ... >
+
+\ <% TC-MENU-OFF %>  \ Временно отключаем создание меню  \ Опционально
+
+\ < ... Задачи скомпилированные здесь не будут добавлены в меню ... >
+
+\ <% TC-MENU-ON %>  \ Включаем обратно создание меню  \ Опционально
+
+\  < ... Задачи кронтаба для отображения в меню ... >
+
+\  <% ;TC-MENU %>
+
+
+\ А вот так сохраняется меню для всех задач:
+\  <% S" Задачи ннкрона" S" C:\<путь к TC>\nncron-tasks.bar" SAVE-TC-BUTTONBAR %>
+
+\ Задачи определенные уже после сохранения меню не будут добавлены в него.
+
+MODULE: TOTALCMD-MENU-MODULE
+
+  : nncron-path  S" C:\Program Files\nnCron\nncron.exe" ;
+
+  CREATE tn-stack 1024 CELLS ALLOT
+  VARIABLE tn-stack-depth
+
+  : >tn-stack   \ ( num -- )
+    tn-stack tn-stack-depth @ CELLS + !
+    tn-stack-depth 1+!
+  ;
+
+  : tn-stack>  \ ( -- num )
+    -1 tn-stack-depth +!
+    tn-stack tn-stack-depth @ CELLS + @
+  ;
+
+  CREATE crontab-menu-name 64 ALLOT
+  CREATE tc-menu-path 256 ALLOT
+
+  VARIABLE marked-task
+  VARIABLE tasks-cnt
+
+  2VARIABLE tc-menu
+
+  : tc-menu-path-init   \ ( -- )
+    tc-menu-path 256 ERASE
+  ;
+
+  tc-menu-path-init
+
+  : tc-menu-init   \ ( -- )
+    S" " tc-menu 2!
+  ;
+
+  tc-menu-init
+
+  : >tcm   \ ( a u -- )
+    tc-menu 2@ 2SWAP S+ tc-menu 2!
+  ;
+
+  : "cnt   \ ( -- a u )
+    tasks-cnt @ N>S
+  ;
+
+  : cnt>tcm   \ ( -- )
+    "cnt >tcm
+  ;
+
+  : crlf>tcm   \ ( -- )
+    CRLF >tcm
+  ;
+
+  : ">tcm   \ ( -- )
+    QUOTE >tcm
+  ;
+
+  : TCM"
+    [CHAR] "
+    PARSE [COMPILE] SLITERAL
+    POSTPONE >tcm
+  ;  IMMEDIATE
+
+  : not-hidden-task?   \ ( a u -- ? )
+    DROP 15 S" CLASSIC-TASK-#-" COMPARE
+  ;
+
+  : task>tcm   \ ( a u -- )
+    tasks-cnt 1+!
+    TCM" button"  cnt>tcm  TCM" =" nncron-path >tcm TCM" ,2" crlf>tcm
+    TCM" cmd"  cnt>tcm
+     TCM" =" ">tcm ">tcm
+     nncron-path >tcm ">tcm
+     TCM"  -run "  
+     2DUP >tcm ">tcm CRLF >tcm
+    TCM" iconic"  cnt>tcm  TCM" =0"  crlf>tcm
+    TCM" menu"  cnt>tcm  TCM" ="
+    >tcm  crlf>tcm
+  ;
+
+  : tasks>tcm
+    tn-stack-depth @ 0 DO
+      tn-stack> COUNT task>tcm
+    LOOP
+  ;
+
+  : for-task   \ ( node -- )
+    CRON-NAME @ DUP COUNT not-hidden-task?
+      IF
+        >tn-stack
+      ELSE 
+        DROP
+      THEN
+  ;
+
+  : get-tasks   \ ( -- a u )
+    ['] for-task CRON-LIST DoList
+    tasks>tcm
+    tc-menu 2@
+  ;
+
+  : TcmDoList   \ ( xt list -- )
+    @ BEGIN marked-task @ OVER = 0= WHILE  \ xt node
+      2DUP SWAP EXECUTE
+      @
+    REPEAT
+    2DROP
+  ;
+
+  : get-marked-tasks   \ ( -- )
+    ['] for-task CRON-LIST TcmDoList
+    tasks>tcm
+  ;
+
+  : mark-task   \ ( -- )
+    CRON-LIST @ marked-task !
+  ;
+
+
+  : tcm-header   \ ( -- a u ) \ Заголовок меню
+    S" [Buttonbar]" CRLF S+
+    S" Buttoncount=" S+ "cnt S+ CRLF S+
+    S" button1=totalcmd.exe,10" S+ CRLF S+
+    S" cmd1=default.bar" S+ CRLF S+
+    S" iconic1=0" S+ CRLF S+
+    S" menu1=" S+ crontab-menu-name COUNT S+ CRLF S+
+    S" button2=" S+ CRLF S+
+    S" iconic2=0" S+ CRLF S+
+  ;
+
+EXPORT
+
+  : TC-MENU-OFF   \ ( -- )
+    get-marked-tasks
+  ;
+
+  : TC-MENU-ON   \ ( -- )
+    mark-task
+  ;
+
+  : TC-MENU-SEPARATOR   \ ( -- ) \ Добавить в меню разделитель
+    get-marked-tasks
+    tasks-cnt 1+!
+    TCM" button" cnt>tcm TCM" =" crlf>tcm
+    TCM" iconic" cnt>tcm TCM" =0" crlf>tcm
+    mark-task
+  ;
+
+  : TC-MENU:   \ ( a-filename u-filename -- )  " имя до конца строки с пробелами"  \ ВНИМАНИЕ! Только для применения в кронтабе в секции <% ... %>
+  \ Только для режима интерпретаци!
+    tc-menu-path-init  tc-menu-path PLACE
+    tc-menu-init
+    2 tasks-cnt !
+    mark-task
+    crontab-menu-name 64 ERASE
+    0 PARSE crontab-menu-name PLACE
+  ;
+
+  : ;TC-MENU   \ ( -- )
+    get-marked-tasks
+    tcm-header tc-menu 2@  S+ tc-menu-path COUNT  FWRITE
+  ;
+
+  : SAVE-TC-BUTTONBAR   \ ( a-name u-name a-filename u-filename -- )
+    2SWAP crontab-menu-name PLACE
+    tc-menu-init
+    2 tasks-cnt !
+    get-tasks  \ a u
+    tcm-header 2SWAP S+
+    2SWAP FWRITE
+  ;
+
+;MODULE

@@ -1,0 +1,430 @@
+\ Файл:       extwords.spf
+\ Автор:      VoidVolker
+\ Дата:       09:30 17/09/2015
+\ Версия:     1.73
+\ Описание:   Сборник различных полезных слов
+
+\ SEARCH Fix (исправляет баг поиска в строках более 65535 байт)
+0x90 ' SEARCH 29 + C!  \ 0x67 (prefix) -> NOP
+
+\ ### Константы
+2 CELLS CONSTANT DCELL
+
+\ ### Исправление багов
+
+WARNING @ WARNING OFF
+
+\ # Запись нуля в конец строки словом PLACE
+    : PLACE
+        DUP >R PLACE
+        0 R> COUNT + C!
+    ;
+
+WARNING !
+
+\ ### Хаки
+\ # Ветвление, циклы
+    : IFNOT   \ ( flag -- )
+        ?COMP
+        [COMPILE] IF
+        0x85 HERE 5 - C!   \ Хак: подменяем скомпилированную ранее инструкцию JE(0x84) на JNE(0x85)
+        \ Высокоуровневый вариант:
+        \ POSTPONE 0= [COMPILE] IF
+    ; IMMEDIATE
+
+    : WHILENOT
+        ?COMP
+        [COMPILE] WHILE
+        0x85 HERE 5 - C!   \ Хак: подменяем скомпилированную ранее инструкцию JE(0x84) на JNE(0x85)
+        \ Высокоуровневый вариант:
+        \ POSTPONE 0= [COMPILE] WHILE
+    ; IMMEDIATE
+
+    : UNTILNOT
+        ?COMP
+        [COMPILE] UNTIL
+        0x85 HERE 5 - C!   \ Хак: подменяем скомпилированную ранее инструкцию JE(0x84) на JNE(0x85)
+        \ Высокоуровневый вариант:
+        \ POSTPONE 0= [COMPILE] UNTIL
+    ; IMMEDIATE
+
+\ # Снятие ограничения на максимальную длину пути для цикла FOR-FILES
+\ : ffHackMaxPath  \ ( num -- )
+  \ DUP ffMask DUP ['] ffPath 5 + ! + ['] /FF-BUF 5 + !
+\ ;
+\ 1000 ffHackMaxPath   \ 1000 - можно заменить на любое нужное число
+\ Для нтфс максимальная длина пути составляет 32 767 символов Юникода, при этом максимальная длина имени файла 255 байт
+
+
+    : A@XT   \ ( addr -- xt ) \ Извлечь вызываемый токен из адреса. Вызов(call) -> E8...... <- смещение, относительно текущего адреса в стеке возвратов (фактически следующий вызов, после этого)
+        DUP 1+ @ 5 + +
+    ;
+    
+\ ### Умножители Кило- Мега- Гига-
+    : Kb   10 LSHIFT ;
+    : Mb   20 LSHIFT ;
+    : Gb   30 LSHIFT ;
+
+\ ### Стек
+    : -ROT ROT ROT ;
+
+\ # Математические операции
+    : D>0  \ ( ud -- ? )
+        0 0 2SWAP D<
+    ;
+
+\ ### Переменные и массивы
+
+    : 0ALLOT   \ ( len -- ) \ Выделение памяти c очисткой
+        HERE SWAP
+        DUP ALLOT
+        ERASE
+    ;
+
+    : QUAN 0 VALUE ;
+    : ARRAY   \ ( size -- ) ( " name" -> ) \ Создать массив размером size байт и иницировать все его ячейки нулем.
+        CREATE 0ALLOT ;
+    : USER-ARRAY USER-CREATE USER-ALLOT ;
+
+\ ### Строки
+    : BACK-SEARCH  { a u a1 u1 \ a2 u2 -- a2 u2 ? }  \ Поиск с конца
+        0
+        a TO a2  u TO u2
+        a u +
+        u 0 DO
+            DUP I -
+            u1 a1 u1 COMPARE
+                IF ELSE
+                    DUP I  - TO a2
+                    I TO u2
+                    NIP -1 SWAP
+                    LEAVE
+                THEN
+        LOOP DROP
+        a2 u2 ROT
+    ;
+
+    : StringGetPos { a1 u1  a2 u2 -- pos }
+        a1 u1 a2 u2 SEARCH IF DROP a1 - 1+ ELSE 2DROP 0 THEN ;
+    : CropFromString   \ ( a1 u1  a2 u2 -- a3 u3 ) \ Обрезать строку 1 начиная со строки 2
+        3 PICK >R  SEARCH IF DROP R@ - R> SWAP THEN ;
+    : CropAfterString   \ ( a u a1 u1 -- a2 u2 ) \ Обрезать строку 1 после строки 2
+        DUP >R 3 PICK >R  SEARCH IF DROP R@ - R> SWAP R> + THEN ;
+
+    : CharReplace   \ ( a u char1 char2 -- a u ) \ Заменить в строке символ 1 на символ 2 и оставить строку на стеке
+        2OVER OVER + SWAP DO  \ a u char1 char2
+          OVER I C@ = IF DUP I C! THEN
+        LOOP
+        2DROP
+    ;
+
+    : CropFromStringEnd   \ ( a1 u1  a2 u2 -- a3 u3 ) \ Обрезать строку 1 начиная со строки 2 для первого совпадения с конца строки
+        3 PICK >R  BACK-SEARCH IF DROP R@ - R> SWAP THEN
+    ;
+
+    : CropAfterStringEnd   \ ( a u a1 u1 -- a2 u2 ) \ Обрезать строку 1 после строки 2 для первого совпадения с конца строки
+        DUP >R 3 PICK >R  BACK-SEARCH IF DROP R@ - R> SWAP R> + THEN
+    ;
+
+    : StringSplit   { a u a1 u1 -- a2 u2 a3 u3 TRUE | a u a1 u1 FALSE }
+        a u a1 u1 SEARCH IF
+            OVER a - a SWAP   \ a4 u4 a2 u2
+            2SWAP       \ a2 u2 a4 u4
+            u1 - SWAP u1 + SWAP \  a2 u2 a3 u3
+            TRUE
+        ELSE
+            2DROP
+            a u a1 u1
+            FALSE
+        THEN
+    ;
+
+    : GET-SUBST { a0 u0 a1 u1 a2 u2 -- a3 u3 | a0 u0 } \ Получить подстроку a3 u3 из строки a0 u0, ограниченную a1 u1 и a2 u2. Если подстрока не найдена - вернуть пустую строку.
+        a0 u0 a1 u1 SEARCH
+        IF
+            u1 u1 NEGATE D+ 2DUP
+            a2 u2 SEARCH
+            IF
+                NIP OVER - ABS NIP
+            ELSE
+                2DROP 2DROP S" "
+            THEN
+        ELSE
+            2DROP S" "
+        THEN
+    ;
+
+    : GET-SUBST-ANY { a0 u0 a1 u1 a2 u2 -- a3 u3 | a0 u0 } \ Получить подстроку a3 u3 из строки a0 u0, ограниченную a1 u1 и a2 u2 или ограниченную a2 u2 и a1 u1 - т.е. порядок строк-ограничителей не важен. Если подстрока не найдена - вернуть пустую строку.
+        a0 u0 a1 u1 SEARCH IF
+            a0 u0 a2 u2 SEARCH IF
+                ROT - ABS >R MIN R>
+                u1 u2 MAX DUP NEGATE D+
+            ELSE
+                2DROP 2DROP S" "
+             THEN
+        ELSE
+            2DROP S" "
+        THEN
+    ;
+
+    : REL-PATH   { a u -- a1 u1 } \ Получить относительный путь C:\any\path\file.txt -> C:\any\path\
+        a
+        a u +
+        BEGIN
+            1-
+            DUP C@ [CHAR] \ =
+            OVER C@ [CHAR] / = OR
+            OVER a = OR
+        UNTIL
+        a - 1+
+    ;
+
+    : SPLACE   \ ( a u buf -- )
+        >R
+        DUP R@ !                \ Сохраняем счетчик строки
+        R@ CELL+                \ Пропускаем счетчик
+        SWAP CMOVE              \ Перемещаем строку
+        0 R@ @ R> CELL+ + !     \ Записываем в конец строки ноль (опционально)
+    ;
+
+    : SCOUNT   \ ( buf -- a u )
+        DUP CELL+ SWAP @
+    ;
+
+    : +SPLACE   \ ( a u buf -- )
+        DUP >R      \ a u buf       R: buf
+        SCOUNT +    \ a u bufEnd    R: buf
+        OVER R@ +!  \ a u bufEnd
+        SWAP CMOVE
+        0 R> SCOUNT + !
+    ;
+
+    : SCONSTANT   \ ( " имя" " любой текст до конца строки" -> ) ( -- a u ) \ Строковая константа
+        : 0 PARSE [COMPILE] SLITERAL POSTPONE ;      \ ]
+    ;
+\ # Строковый CASE
+    : SCASE ( -> )
+        !CSP
+    ; IMMEDIATE
+
+    : SOF
+        POSTPONE 2OVER POSTPONE COMPARE
+        [COMPILE] IFNOT POSTPONE 2DROP
+    ; IMMEDIATE
+
+    : ENDSOF
+        [COMPILE] ELSE
+    ; IMMEDIATE
+
+    : ENDSCASE
+        POSTPONE 2DROP BEGIN SP@ CSP@ <>
+        WHILE  [COMPILE] THEN  REPEAT -CSP
+    ; IMMEDIATE
+
+\ ### Парочка слов для работы с VALUE и векторами
+    : USES   \ ( " word_name" " name_vect" -> ) \ Записать выполнимый токен следующего слова в вектор. Замена конструкции ['] ... TO ... Пример:  ['] any_word TO any_vect_or_value -->  USES any_word any_vect_or_value
+        STATE @
+        IF
+            POSTPONE ['] POSTPONE TO
+        ELSE
+            ' [COMPILE] TO
+        THEN
+    ; IMMEDIATE
+
+    : FROM   \ ( " name" -> xt ) \ Получить значение вектора.
+        ' 5 +
+        STATE @ IF LIT, POSTPONE @ ELSE @ THEN
+    ; IMMEDIATE
+
+    : +TO \ ( n -- ) ( "name" -> ) \ Прибавить значение к VALUE или USER-VALUE переменной
+        ' DUP >R A@XT ['] _USER-VALUE-CODE =   \ ?   \ для user value
+        STATE @ IF 
+            IF 
+                R@ COMPILE,
+                POSTPONE + 
+                R> 9 + COMPILE,
+            ELSE
+                R> >BODY
+                POSTPONE LITERAL 
+                POSTPONE +! 
+            THEN
+        ELSE 
+            IF 
+                R@ EXECUTE + 
+                R> 9 + EXECUTE
+            ELSE
+                R> >BODY +!
+            THEN
+        THEN
+    ; IMMEDIATE
+
+\ ### Печать в консоли
+    : .B   \ ( num -- )  \ Распечатать число со стека в бинарной системе счисления
+        BASE @ SWAP 2 BASE ! . BASE ! ;
+    : .D   \ ( num -- )  \ Распечатать число со стека в десятичной системе счисления
+        BASE @ SWAP DECIMAL . BASE ! ;
+    : .H   \ ( num -- )  \ Распечатать число со стека в шестнадцатиричной системе счисления
+        BASE @ SWAP HEX . BASE !
+    ;
+
+    : PRINT   \ ( az -- ) \ Распечатать az строку
+        BEGIN DUP C@ DUP WHILE
+          EMIT 1+
+        REPEAT
+        2DROP
+    ;
+
+\ ### Печать стека
+\ Слово .SN есть в disasm.f
+    : .SN   \ ( n -- ) \ Распечатать n верхних элементов стека
+        >R BEGIN
+           R@
+        WHILE
+          SP@ R@ 1- CELLS + @ DUP 0<
+          IF DUP U>D <# #S #> TYPE
+             ." (" ABS 0 <# #S [CHAR] - HOLD #> TYPE ." ) " ELSE . THEN
+          R> 1- >R
+        REPEAT RDROP
+    ;
+
+    :NONAME
+        STATE @ 0=
+        IF
+            DEPTH 10 < IF
+                DEPTH IF
+                    ."  Ok ( " DEPTH .SN  ." )" CR
+                ELSE
+                    ."  Ok" CR
+                THEN
+            ELSE
+                ."  Ok ( [" DEPTH 0 <# #S #> TYPE ." ].. "
+                5 .SN ." )" CR
+            THEN
+        THEN
+    ; TO OK
+
+\ ### Окна
+    WINAPI: WindowFromPoint user32.dll
+    : WIN-FROM-POINT   \ ( -- hwnd ) \ Получить хэндл окна под курсором
+        MOUSE-POS  SWAP WindowFromPoint
+    ;
+
+    : GET-WTEXT \ ( hwnd -- a u ) \ Получить текст окна по его хэндлу. Работает и для дочерних окон. Максимальный размер текста - 256 байт.
+        PAD 256 ROT 13 SWAP SendMessageA PAD SWAP
+    ;
+
+    WINAPI: GetParent USER32.DLL
+    WINAPI: GetClassNameA User32.dll
+
+    : GET-WCLASS \ ( hwnd -- a u ) \ Получить класс окна по его хэндлу. Работает и для дочерних окон
+        256 PAD ROT GetClassNameA PAD SWAP
+    ;
+
+    WINAPI: GetParent USER32.DLL
+    : TOP-PARENT-WINDOW   \ ( hwnd-child -- hwnd-parent ) \ Получить родительское окно верхнего уровня по хэндлу дочернего окна
+        BEGIN DUP GetParent DUP WHILE
+          NIP
+        REPEAT
+        DROP
+    ;
+
+    : WinActivate   ( hwnd -- )
+        DUP PUSH-WINDOW DROP \ TO active-window#
+        DUP IsIconic
+        IF 9 SWAP ShowWindow DROP ELSE DROP THEN \ #define SW_RESTORE 9
+    ;
+
+\ ### Потоки
+    : STOP-THEARD   \ ( tid -- ) \ Остановить поток с идентификатором tid
+        ?DUP IF
+            0 1 OpenThread ?DUP
+            IF STOP THEN
+        THEN
+    ;
+
+\ ### Файлы
+    : FILE-MD5   \ ( a u -- a1 u1 ) \ Получить MD5 хэш для файла a u
+        PAD 256 ERASE
+        PAD ROT ROT MD5File DROP
+        PAD MD5String
+    ;
+    
+    : FILE-BLOCK   { offset size \ h buf -- }  \ ( a0 u0 offset size -- a1 u1 ) \ Загрузить в память блок файла начиная с offset и длиной size, отрицательное смещение считается смещением с конца файла
+        R/O OPEN-FILE-SHARED THROW TO h
+        h FILE-SIZE THROW                   \ ud
+        offset size + S>D                   \ ud ud1
+        2OVER                               \ ud ud1 ud
+        D< IF                               \ ud        \ Проверяем размер файла и смещение - иначе выходим
+            offset 0< IF                        \ ud    \ Если смещение отрицательное - то отсчитываем с конца файла
+                offset S>D D+                   \ ud1   \ Прибавляем отрицательное смещение к длине файла - получаем смещение от конца файла
+            ELSE
+                2DROP offset S>D                \ ud2   \ Выкидываем размер файла - он больше не нужен, вместо него используем смещение как смещение от начала файла
+            THEN
+            h REPOSITION-FILE THROW                     \ Смещаем позицию в файле
+            size CELL+ ALLOCATE THROW TO buf            \ Выделяем память для чтения блока файла
+            buf size h
+            READ-FILE THROW                     \ u1    \ Читаем нужный блок. На стеке - размер прочитанного блока из файла
+            buf SWAP                            \ a1 u1
+        ELSE
+            2DROP
+            S" "
+        THEN
+        h CLOSE-FILE THROW
+    ;
+
+    : FILE-REST   { offset \ h buf -- }  \ ( a0 u0 offset -- a1 u1 ) \ Загрузить в память блок файла начиная с offset и до конца файла, отрицательное смещение считается смещением с конца файла
+        R/O OPEN-FILE-SHARED THROW TO h
+        h FILE-SIZE THROW                   \ ud
+        offset S>D                          \ ud ud1
+        2OVER                               \ ud ud1 ud
+        D< IF                               \ ud        \ Проверяем размер файла и смещение - иначе выходим
+            2DUP                                \ ud ud
+            offset 0< IF                        \ ud ud  \ Если смещение отрицательное - то отсчитываем с конца файла
+                offset S>D D+                   \ ud ud1 \ Прибавляем отрицательное смещение к длине файла - получаем смещение от конца файла
+            ELSE
+                2DROP offset S>D                \ ud ud1 \ Выкидываем размер файла - он больше не нужен, вместо него используем смещение как смещение от начала файла
+            THEN
+            2SWAP                               \ ud1 ud
+            2OVER D- D>S -ROT                   \ u1 ud1 
+            h REPOSITION-FILE THROW             \ u1     \ Смещаем позицию в файле
+            DUP CELL+ ALLOCATE THROW TO buf     \ u1     \ Выделяем память для чтения блока файла
+            buf SWAP h                          \ a1 u1 h
+            READ-FILE THROW                     \ u1    \ Читаем нужный блок. На стеке - размер прочитанного блока из файла
+            buf SWAP                            \ a1 u1
+        ELSE
+            2DROP
+            S" "
+        THEN
+        h CLOSE-FILE THROW
+    ;
+    
+\ ### Время исполнения
+\ Взято из disasm.f из дистрибутива спф
+
+  \ Ruvim Pinka additions:
+  : [DEFINED] ( -- f ) \ "name"
+    NextWord  SFIND  IF DROP TRUE ELSE 2DROP FALSE THEN
+  ; IMMEDIATE
+
+  : [UNDEFINED]  ( -- f ) \ "name"
+    POSTPONE [DEFINED] 0=
+  ; IMMEDIATE
+
+
+\ ### Разное
+
+\ # Клавиатура и пользовательский ввод
+
+    [DEFINED] KEY-PRESSED? [IF]  \ Включается при подключении плагина keystate.spf
+
+        : WAIT-KUP   \ ( VK -- )  \ Ждать поднятия кнопки с кодом VK
+            BEGIN DUP KEY-PRESSED? WHILE
+            50 PAUSE
+            REPEAT DROP
+        ;
+
+    [THEN]
+
+    WINAPI: BlockInput USER32.DLL
+    : BlockTheInput TRUE BlockInput DROP ;
+    : UnblockTheInput FALSE BlockInput DROP ;

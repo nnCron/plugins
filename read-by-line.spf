@@ -1,0 +1,308 @@
+\ Файл:       read-by-line.spf
+\ Автор:      VoidVolker
+\ Дата:       14:25 11/08/15
+\ Версия:     2.0
+\ Описание:   Построчное чтение и обработка файлов и строк. С чтением файла как с диска так и с предзагрузкой в ОЗУ.
+
+USER-VALUE LINE-NUMBER
+
+MODULE: READ-BY-LINE-MODULE
+
+    USER-VALUE fEND
+    USER-VALUE Lc
+    USER-VALUE Lu
+    USER-CREATE rblStartOffset 2 CELLS USER-ALLOT
+    
+    : (READ-BY-LINE) { xt \ Lf -- }  ( a u xt -- )
+        fEND >R     \ Сохраняем переменные (для вложенных случаев)
+        Lc >R
+        Lu >R
+        LINE-NUMBER >R
+        
+        R/O OPEN-FILE-SHARED THROW TO Lf
+        
+        rblStartOffset 2@ D0<> IF
+            Lf FILE-SIZE THROW 
+            rblStartOffset 2@
+            2OVER
+            D> IF 
+                rblStartOffset 2@ D0< IF
+                    D+
+                ELSE
+                    DROP
+                THEN
+                Lf REPOSITION-FILE THROW
+            ELSE
+                2DROP
+            THEN            
+        THEN 
+        
+        -1 TO fEND
+        1 TO LINE-NUMBER
+        10248   \ максимальная длина строки (в символах)
+        ALLOCATE THROW TO Lc
+        
+        BEGIN Lc 10238 Lf READ-LINE THROW
+            fEND AND WHILE  \ Выход по команде
+            TO Lu
+            0 Lc Lu + C!
+            xt EXECUTE
+            LINE-NUMBER 1+ TO LINE-NUMBER
+        REPEAT  DROP
+
+        Lf CLOSE-FILE DROP
+        Lc FREE DROP
+
+        R> TO LINE-NUMBER
+        R> TO Lu
+        R> TO Lc
+        R> TO fEND  \ Восстанавливаем переменные
+    ;
+    
+
+    USER-VALUE leA
+    USER-VALUE leU
+
+    CREATE leUnix 0xA C, 0 C,
+    CREATE leOSX  0xD C, 0 C,
+    CREATE leZ 0 , 0 ,
+
+    : (FOR-FILE-LINES) \ ( a u xt -- )
+        fEND >R     \ Сохраняем переменные (для вложенных случаев)
+        Lc >R
+        Lu >R
+        LINE-NUMBER >R
+
+        leA IF ELSE \ Инициализируем делитель строк
+            CRLF TO leU TO leA
+        THEN
+
+        leA >R
+        leU >R
+
+        -ROT    \ xt a u
+        -1 TO fEND
+        1 TO LINE-NUMBER
+
+        FILE OVER TO Lc
+
+        Lc >R   \ Сохраням начальный адрес файла на стеке возвратов
+
+        ROT >R  \ Сохраняем токен
+
+        \ a u
+        BEGIN
+
+            \ SREAD-LINE
+            DUP \ a u u
+            0 >
+            IF
+                2DUP            \ a u  a u
+                leA leU         \ a u  a u  a1 u1
+                SEARCH          \ a u  a u  a2 u2  ?
+                0=              \ a u  a u  a2 u2  -?
+                IF              \ a u  a u  a2 u2
+                    2DROP           \ a u  a u
+                    2DUP            \ a u  a u    a u
+                    +               \ a u  a u    a+u
+                    0               \ a u  a u    a+u 0
+                    2SWAP           \ a u  a+u 0  a u
+                ELSE            \ a u  a u  a2 u2
+                    2DUP            \ a u  a u     a2 u2  a2 u2
+                    2>R             \ a u  a u     a2 u2           R: a2 u2
+                    NIP             \ a u  a u     u2              R: a2 u2
+                    -               \ a u  a u-u2                  R: a2 u2
+                    2R>             \ a u  a u-u2  a2 u2
+                    leU             \ a u  a u-u2  a2 u2 2
+                    /STRING         \ a u  a u-u2  a2+2 u2-2
+                    2SWAP           \ a u  a2+2 u2-2  a u-u2
+                THEN
+                TRUE
+            ELSE
+                2DUP FALSE \ a u a u ?
+            THEN
+
+            fEND AND
+
+        WHILE
+
+            TO Lu TO Lc
+            R@ -ROT 2>R EXECUTE 2R>
+            LINE-NUMBER 1+ TO LINE-NUMBER
+
+        REPEAT
+        2DROP 2DROP
+
+        RDROP   \ Удаляем токен
+
+        R> FREE THROW   \ Освобождаем память, занятую файлом
+
+        R> TO leU
+        R> TO leA
+        R> TO LINE-NUMBER
+        R> TO Lu
+        R> TO Lc
+        R> TO fEND  \ Восстанавливаем переменные
+    ;
+
+    : (FOR-LINES) \ ( a u xt -- )
+        fEND >R     \ Сохраняем переменные (для вложенных случаев)
+        Lc >R
+        Lu >R
+        LINE-NUMBER >R
+
+        leA IF ELSE \ Инициализируем делитель строк
+            CRLF TO leU TO leA
+        THEN
+
+        leA >R
+        leU >R
+
+        >R \ Сохраняем токен
+        -1 TO fEND
+        1 TO LINE-NUMBER
+
+        OVER TO Lc
+
+        \ a u
+        BEGIN
+
+            \ SREAD-LINE
+            DUP \ a u u
+            0 >
+            IF
+                2DUP            \ a u  a u
+                leA leU         \ a u  a u  a1 u1
+                SEARCH          \ a u  a u  a2 u2  ?
+                0=              \ a u  a u  a2 u2  -?
+                IF              \ a u  a u  a2 u2
+                    2DROP           \ a u  a u
+                    2DUP            \ a u  a u    a u
+                    +               \ a u  a u    a+u
+                    0               \ a u  a u    a+u 0
+                    2SWAP           \ a u  a+u 0  a u
+                ELSE            \ a u  a u  a2 u2
+                    2DUP            \ a u  a u     a2 u2  a2 u2
+                    2>R             \ a u  a u     a2 u2           R: a2 u2
+                    NIP             \ a u  a u     u2              R: a2 u2
+                    -               \ a u  a u-u2                  R: a2 u2
+                    2R>             \ a u  a u-u2  a2 u2
+                    leU             \ a u  a u-u2  a2 u2 2
+                    /STRING         \ a u  a u-u2  a2+2 u2-2
+                    2SWAP           \ a u  a2+2 u2-2  a u-u2
+                THEN
+                TRUE
+            ELSE
+                2DUP FALSE \ a u a u ?
+            THEN
+
+            fEND AND
+
+        WHILE
+
+            TO Lu TO Lc
+            R@ -ROT 2>R EXECUTE 2R>
+            LINE-NUMBER 1+ TO LINE-NUMBER
+
+        REPEAT
+        2DROP 2DROP
+
+        RDROP   \ Удаляем токен
+
+        R> TO leU
+        R> TO leA
+        R> TO LINE-NUMBER
+        R> TO Lu
+        R> TO Lc
+        R> TO fEND  \ Восстанавливаем переменные
+    ;
+
+EXPORT
+
+    : LE-WIN   \ ( -- ) \ Установить разделителем переводы строк Windows формата 0x0D0A
+        CRLF TO leU TO leA
+    ;
+
+    : LE-UNIX   \ ( -- ) \ Установить разделителем переводы строк Unix формата 0x0A
+        leUnix TO leA
+        1 TO leU
+    ;
+
+    : LE-OSX   \ ( -- ) \ Установить разделителем переводы строк OSX формата 0x0D
+        leOSX TO leA
+        1 TO leU
+    ;
+
+    : LE-Z   \ ( -- ) \ Установить разделителем строк ноль
+        leZ TO leA
+        1 TO leU 
+    ;
+    
+    : LE-SET   \ ( a u -- ) \ Установить собственный делитель строк
+        TO leU TO leA
+    ;
+
+    : LE-GET   \ ( -- a u ) \ Получить текущий делитель строк
+        leA leU
+    ;
+
+    : ?RBL-EXIT   \ ( ? -- ) \ Условный выход из цикла
+       NOT TO fEND
+    ;
+
+    : RBL-EXIT   \ ( -- ) \ Выйти из цикла
+       0 TO fEND
+    ;
+
+    : ?LINE-EXIT   \ ( ? -- ) \ Условный выход из цикла
+       NOT TO fEND
+    ;
+
+    : LINE-EXIT   \ ( -- ) \ Выйти из цикла
+       0 TO fEND
+    ;
+
+    : FOUND-LINE   \ ( -- a u ) \ Найденная строка
+       Lc Lu
+    ;
+
+    : READ-BY-LINE \ compile: ( -- ) \ Построчное чтение файла с диска
+                \  execute: ( a u --)
+        POSTPONE [NONAME
+    ; IMMEDIATE
+
+    : ;READ-BY-LINE
+        POSTPONE NONAME]
+        POSTPONE (READ-BY-LINE)
+    ; IMMEDIATE
+
+    : READ-BY-LINE: eval-string,  POSTPONE READ-BY-LINE ; IMMEDIATE
+
+
+    : FOR-FILE-LINES \ compile: ( -- ) \ Построчная обработка файла с загрузкой файла в память и последующим освобождением памяти
+                \  execute: ( a u --)
+        POSTPONE [NONAME
+    ; IMMEDIATE
+
+    : ;FOR-FILE-LINES
+        POSTPONE NONAME]
+        POSTPONE (FOR-FILE-LINES)
+    ; IMMEDIATE
+
+    : FOR-FILE-LINES: eval-string,  POSTPONE FOR-FILE-LINES ; IMMEDIATE
+
+
+    : FOR-LINES \ compile: ( -- ) \ Построчная обработка строки
+                \  execute: ( a u --)
+        POSTPONE [NONAME
+    ; IMMEDIATE
+
+    : ;FOR-LINES
+        POSTPONE NONAME]
+        POSTPONE (FOR-LINES)
+    ; IMMEDIATE
+
+    : FOR-LINES: eval-string,  POSTPONE FOR-LINES ; IMMEDIATE
+
+
+;MODULE

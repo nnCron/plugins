@@ -1,0 +1,1381 @@
+\ Файл:       strings.spf
+\ Автор:      VoidVolker
+\ Дата:       30/08/2014 14:08
+\ Версия:     0.92e
+\ Описание:   Библиотека поддержки строк в форте. Включает в себя строковые литералы, сложение строк и поддержку кодировок UTF-8, -16 и -32.
+\   Основные отличния от обычных строк в форте.
+\ — Полная поддержка юникода, в т.ч. создание строковых литералов в кодировке юникод. По умолчанию тип кодировки — WIN1251.
+\  Автоматическая перекодировка осуществляется непосредственно перед созданием литерала средствами api операционной системы
+\ — Вставка в строку числовых или строковых констант на этапе компиляции
+\ — Поддержка вставки служебных символов в строку и экранирование служебных символов
+\ — Автоматический буфер для быстрого сложения строк
+\ — Динамическое выделение и освобождение памяти для строк большого или непредсказуемого размера больше буфера
+
+\ --------------------------------------------------------------------------------------------------------------------
+\ ### Описание синтаксиса ###
+\ Слова:
+\   " <any_string>"     Создать строковый литерал az u
+\   s' <any_string>'    Создать строковый литерал az u
+\   z" <any_string>"    Создать строковый литерал az
+\   z' <any_string>'    Создать строковый литерал az
+\   +" <any_string>"    Добавить строку в буфер SPAD
+\   +' <any_string>'    Добавить строку в буфер SPAD
+\ Разницы в поведении слов с разными кавычками нет - одинарная кавычка была добавлена только для удобства работы с кавычками.
+\ Все то же самое, но без эскейп-последовательностей:
+\   "s  "
+\   's  '
+\   "z "
+\   'z '
+\   "+ "
+\   '+ '
+
+\ Поддерживаются т.н. "эскейп-последовательности" - т.е. определенные последовательности
+\   символов будут сразу же заменяться на соответствующие им символы.
+\     \   ->
+\     \\  ->  \
+\     \q  ->  "
+\     \Q  ->  '
+\     \%  ->  %
+\     \t  ->  <табуляция> 9
+\     \v  ->  <вертикальная табуляция> 0xB
+\     \r  ->  <возврат картеки> cr 0xD
+\     \n  ->  <перевод строки> lf  0x0A
+\     \N  ->  <перевод строки> crlf  0x0D0A
+\     \xZZ -> где Z - шестнадцатиричное значение символа  (*) 1 байт
+\     \ZZZ -> где Z - десятичное значение символа (*) 1 байт
+\ (*) Z - любое число в системе счисления с основанием 10 или 16, при этом одна такая последовательность занимает в строке число байт
+\ соответствующее текущей кодировке. При этом, если число больше размера символа для текущей кодировки, то лишние байты игнорируются.
+
+\   ESC-OFF  ( -- ) Выключение эскейп-последовательностей
+\   ESC-ON  ( -- ) Включение эскейп-последовательностей
+
+\   SPAD!       ( a u -- )    Записать строку в буфер SPAD
+\   SPAD+       ( a u -- )    Добавить строку в буфер SPAD
+\   SPAD!+      ( a1 u1 a2 u2 -- )    Сложить две строки в буфере SPAD ; то же самое что и : SPAD!+ 2SWAP SPAD! SPAD+ ;
+\   SPAD@       ( -- a u )    Получить строку из буфера SPAD
+\   SPAD        ( -- addr )   Буфер SPAD. VALUE переменная
+\   SPAD#       ( -- u )  Размер строки в буфере SPAD
+\   LPAD@       ( -- a u )    Получить последнюю созданную строку
+\   LPAD        ( -- a )    Получить адрес последней созданной строки
+\   LPAD#       ( -- u )    Получить длину последней созданной строки
+\   STR+        ( a1 u1 a2 u2 -- a3 u3 )    Сложить две строки в буфере SPAD и получить результат
+\   SPAD-ALLOC  ( size -- )   Выделить новый участок памяти для SPAD размером size и переместить в него данные
+
+\ Выполнение кода в подстроках.
+\ Между % и % находится код, который надо выполнить, а результат поместить в строку.
+\ При этом контролируется изменение глубины стека: если код вернул одно значение — это число, оно конвертируется в строку
+\ и вставляется в строковый литерал. Если два значения — считается, что это строка и далее она вставляется в строку.
+\ Контроль глубины стека выключается так: DEPTH-CONTROL OFF или чуть ниже в настройках плагина
+\ Числа двойной длины необходимо конвертировать в строку вручную:
+  \ : dconstant 123 045 ;
+  \ " dconstant= %dconstant DOUBLE>S%"
+
+\ # Вставка числа в строку в виде константы в режиме компиляции
+\ В подстроке можно выполнить любой код между двумя символами процента: главное чтобы он вернул либо число — тогда оно
+\ будет автоматически сконвертировано в строку, либо строку, которая тоже автоматически будет вставлена в итоговую
+\ строку еще на этапе компиляции кода. Для этого в подстроке необходимо с помощью квадратных скобок перейти
+\ в режим интерпретации, выполнить код и вернуться в режим компиляции.
+\ Именно такой режим выбран для того, чтобы не вводить дополнительный служебный символ.
+\ Примеры:
+\     1234 VALUE number
+\     : string      " number is: %[ number ]%" ;
+\ Последующее измененение number не повлияет на строку, возвращаемую словом string
+\     : string1     " 2+2=%[ 2 2 + ]%" ;
+
+\ # Вставка строковых констант в строку
+\     : temp-path   " D:\temp\" ;
+\     : log.txt     " %[ temp-path ]%\log.txt" ;
+\  В результате log.txt будет статической строкой с полным путем к логу во временном каталоге.
+
+\  В режиме выполнения:
+\     " %hh%:%mm%:%ss%" TYPE
+\     13:44:15 Ok
+
+\ ВНИМАНИЕ!
+\   В режиме выполнения не следует в подстроках использовать квадратные скобки, т.к. закрывающая квадратная скобка переводит
+\     систему в режим компиляции, что приведет к возникновению исключения.
+\   В режиме интерпретации, во время выполнения кода в подстроке, на стеке находится строка с разультатом сложения строк,
+\    а в режиме компиляции — нет. Т.е. при вполнении скомпилированого в подстроке кода стек останется неизменным.
+
+\ Длина строк может быть любой, в т.ч. возможно создание файлов в виде строковых литералов.
+
+\ --------------------------------------------------------------------------------------------------------------------
+MODULE: STRINGS_MODULE
+
+EXPORT
+\ ===== НАСТРОЙКИ ===== \
+\ Для ПК с маленьким объемом ОЗУ (128-256Мб) и множеством одновременно работающих задач(более 20) этот буфер следует уменьшить
+    100 Mb VALUE /SPAD                 \ Размер буфера для строк SPAD. По умолчанию 10 Мb
+    10 Mb VALUE /STRINGS              \ Размер буфера для строковых литералов STRINGS[]. По умолчанию 10 Мb
+    CREATE DEPTH-CONTROL TRUE ,       \ Контроль глубины стека. Возможные значения: TRUE/FALSE или -1/0. По умолчанию TRUE
+
+    75      CONSTANT REINIT-SPAD#     \ Процент заполнения SPAD для реинициализации (только для режима интерпретаци). По умолчанию 75%
+    TRUE    VALUE AUTOSPAD?           \ Автоматическое управление размером SPAD. Возможные значения: TRUE/FALSE или -1/0. По умолчанию TRUE
+    256 Mb  CONSTANT /SPAD-MAX        \ Максимальный размер буфера SPAD. По умолчанию 100 Mb
+    125     CONSTANT /SPAD-NEWSIZE    \ Процент увеличения размера буфера. По умолчанию 125%
+
+\ ===== НАСТРОЙКИ ===== \
+
+    USER-VECT <CHAR@>
+    USER-VECT <CHAR!>
+    USER-VECT <CHAR-C@>
+    USER-VECT <CHAR-C!>
+
+    USER-VECT <USE-ENCODE>
+
+    \ VECT <STRINGS-INIT>     \ Вектор инициализации
+    USER-VALUE STRINGS-INIT?  \ Была ли произведена инициализация
+    USER-VALUE CHAR-LEN
+    USER-VALUE LastEncodedBuf
+
+    USER-VALUE ESC-OFF?
+    : ESC-OFF TRUE TO ESC-OFF? ;
+    : ESC-ON FALSE TO ESC-OFF? ;
+
+    CHAR \ CONSTANT ESC-CHAR
+
+    CREATE z"" 0 ,
+    : "" z"" 0 ;
+
+\ --------------------------------------------------------------------------------------------------------------------
+DEFINITIONS
+
+    USER-VALUE LitInBuf?
+
+    USER-VALUE escape?
+    : escape-on    TRUE TO escape? ;
+    : escape-off   FALSE TO escape? ;
+
+    USER-VALUE EVAL-STOP?
+    : eval-stop   \ ( a_spad u_spad a_i --  a_spad u_spad a_i )
+    TRUE TO EVAL-STOP?
+    ;
+
+EXPORT
+
+\ --------------------------------------------------------------------------------------------------------------------
+    \ # Получение длины строк
+    : STR-LEN   \ ( az -- u ) \ Вычислить длину строки в текущем формате
+        DUP BEGIN DUP <CHAR@> WHILE   \ az azi
+          CHAR-LEN +
+        REPEAT
+        SWAP -
+    ;
+
+    : ZLEN   \ ( az -- u ) \ Вычислить длину строки в кодировке ASCII или UTF8 и оканчивающуюся нулем длиной в один байт
+        DUP  BEGIN  DUP C@  WHILE  1+  REPEAT  SWAP -
+    ;
+
+    : UTF16-LEN   \ ( az -- u ) \ Вычислить длину строки в кодировке UTF16 и оканчивающуюся нулем длиной в два байта
+        DUP  BEGIN  DUP W@  WHILE  2+  REPEAT  SWAP -
+    ;
+
+    : UTF32-LEN   \ ( az -- u ) \ Вычислить длину строки в кодировке UTF32 и оканчивающуюся нулем длиной в четыре байта
+        DUP  BEGIN  DUP @  WHILE  4 +  REPEAT  SWAP -
+    ;
+
+DEFINITIONS
+
+\ ====================================================================================================================
+  \ ### Перекодировка строк
+
+  \ Кодировка UTF-8
+  \ 0 X X X  X X X X — это ASCII символ, один байт, Х - любое значение, ноль или еденица
+  \ ^ первый байт символа, 0 — символ длиной в один байт
+  \ 1 1 0 X  X X X X   1 0 X X  X X X X
+  \ ^ первый байт, весь символ — два байта, все байты символа после первого байта начинаются с 1 0
+  \ 1 1 1 0  X X X X    1 0 X X  X X X X   1 0 X X  X X X X
+  \ ^ первый байт, всего три байта
+  \ ...
+  \ 1 1 1 1  1 1 0 X   1 0 X X  X X X X   1 0 X X  X X X X   1 0 X X  X X X X   1 0 X X  X X X X   1 0 X X  X X X X
+  \ ^ первый байт, всего шесть байт (пяти- и шести- байтовые символы на данный момент не используются)
+
+  \ : UTF8-CHAR+   \ ( addr1 -- addr1|addr2 ) \ Увелчить адрес на длину утф-8 символа, если он больше одного байта.
+    \ DUP C@ 0x7F > IF   \ 0b01111111 >
+      \ DUP C@ 5 RSHIFT 0x6 = IF  \ 0b110 =
+        \ 2+
+      \ ELSE
+        \ DUP C@ 4 RSHIFT 0xE = IF \ 0b1110 =
+          \ 3 +
+        \ ELSE
+          \ DUP C@ 3 RSHIFT 0x1E = IF \ 0b11110 =
+            \ 4 +
+          \ ELSE  \ Занимает несколько дестяков байт - зато можно не помнить о наличии или отсутсвии поддержки символов в 5 и 6 байт.
+            \ DUP C@ 2 RSHIFT 0x3E = IF \ 0b111110 =
+              \ 5 +
+            \ ELSE
+              \ DUP C@ 1 RSHIFT 0x7E = IF \ 0b111110 =
+                \ 6 +
+              \ THEN
+            \ THEN
+          \ THEN
+        \ THEN
+      \ THEN
+    \ THEN
+  \ ;
+
+  \ Идентификаторы кодировок - указывают на кодировку входной строки
+  \ 0     CP_ACP    The system default Windows ANSI code page.
+  \ Note  This value can be different on different computers, even on the same network. It can be changed on the same computer,
+  \ leading to stored data becoming irrecoverably corrupted. This value is only intended for temporary use and permanent storage
+  \ should use UTF-16 or UTF-8 if possible.
+
+
+  \ Identifier	  .NET  Name         Additional  information
+  \ 866	      cp866	            OEM Russian; Cyrillic (DOS)
+  \ 1251	    windows-1251	    ANSI Cyrillic; Cyrillic (Windows)
+  \ 65001	    utf-8	            Unicode (UTF-8)
+  \ 1200      utf-16    	      Unicode UTF-16, little endian byte order (BMP of ISO 10646); available only to managed applications
+  \ 1201      unicodeFFFE       Unicode UTF-16, big endian byte order; available only to managed applications
+  \ 12000     utf-32	          Unicode UTF-32, little endian byte order; available only to managed applications
+  \ 12001     utf-32BE          Unicode UTF-32, big endian byte order; available only to managed applications
+
+
+  WINAPI: MultiByteToWideChar Kernel32.dll
+  WINAPI: WideCharToMultiByte Kernel32.dll
+
+  : EncBufFree  LastEncodedBuf IF LastEncodedBuf FREE THROW THEN ;
+
+EXPORT
+
+    \ 0       CONSTANT CP_ACP
+    \ 866     CONSTANT CP_DOS
+    1251	  CONSTANT CP_1251
+    65001   CONSTANT CP_UTF8
+    1200    CONSTANT CP_UTF16L
+    1201    CONSTANT CP_UTF16B
+    12000   CONSTANT CP_UTF32L
+    12001   CONSTANT CP_UTF32B
+
+    \ __in       UINT CodePage,
+    \ __in       DWORD dwFlags,
+    \ __in       LPCWSTR lpWideCharStr,
+    \ __in       int cchWideChar,
+    \ __out_opt  LPSTR lpMultiByteStr,
+    \ __in       int cbMultiByte,
+    \ __in_opt   LPCSTR lpDefaultChar,
+    \ __out_opt  LPBOOL lpUsedDefaultChar
+    : UTF16L>S   \ ( wa u -- a1 u1 ) \
+        0 0 2SWAP DUP 2/ CELL+                \  0 0 wa u u1
+        DUP ALLOCATE THROW                    \  0 0 wa u u1 a1
+        DUP TO LastEncodedBuf                 \  0 0 wa u u1 a1
+        2SWAP SWAP                            \  0 0 u1 a1 u wa
+        0 CP_1251 WideCharToMultiByte DROP
+        LastEncodedBuf DUP ZLEN
+        2DUP + 0!
+    ;
+
+    : UTF16L>8   \ ( wa u -- a1 u1 ) \
+        0 0 2SWAP DUP CELL+                   \  0 0 wa u u
+        DUP ALLOCATE THROW                    \  0 0 wa u u a1
+        DUP TO LastEncodedBuf                 \  0 0 wa u u  a1
+        2SWAP SWAP                            \  0 0 u a1 u wa
+        0 CP_UTF8 WideCharToMultiByte DROP
+        LastEncodedBuf DUP ZLEN \ UTF32-LEN
+        2DUP + 0!
+    ;
+
+    : UTF16L>32L   \ ( wa u -- a1 u1 ) \
+        \ 0 0 2SWAP DUP 2* CELL+                \  0 0 wa u u
+        \ DUP ALLOCATE THROW                    \  0 0 wa u u a1
+        \ DUP TO LastEncodedBuf                 \  0 0 wa u u  a1
+        \ 2SWAP SWAP 2/                         \  0 0 u a1 u wa
+        \ 0 CP_UTF32B WideCharToMultiByte
+        \ LastEncodedBuf SWAP                   \ Не работает оно что-то - тогда сами конвертнем
+        DUP 2* DUP >R
+        CELL+ ALLOCATE THROW TO LastEncodedBuf
+        OVER + SWAP LastEncodedBuf
+        ROT ROT DO   \ a1
+          I W@
+          OVER W!
+          4 +
+        2 +LOOP
+        0!
+        LastEncodedBuf R>
+    ;
+
+    \ __in       UINT CodePage,
+    \ __in       DWORD dwFlags,
+    \ __in       LPCSTR lpMultiByteStr,
+    \ __in       int cbMultiByte,
+    \ __out_opt  LPWSTR lpWideCharStr,
+    \ __in       int cchWideChar
+    : S>UTF16L   \ ( a u -- wa1 u1)
+        DUP 2* CELL+                          \ a u u1
+        DUP ALLOCATE THROW                    \ a u u1 addr
+        DUP TO LastEncodedBuf                 \ a u u1 addr
+        2SWAP SWAP                            \ u1 addr u a
+        0 CP_1251 MultiByteToWideChar 2*      \ u1
+        LastEncodedBuf SWAP
+    ;
+
+    : UTF8>16L   \ ( a u -- wa1 u1)
+        DUP 2* CELL+                          \ a u u2
+        DUP ALLOCATE THROW                    \ a u u2 addr
+        DUP TO LastEncodedBuf                 \ a u u2 addr
+        2SWAP SWAP                            \ u2 addr u a
+        0 CP_UTF8 MultiByteToWideChar 2*      \ u1
+        LastEncodedBuf SWAP
+    ;
+
+    : UTF32L>16L   \ ( wa u -- a1 u1 ) \
+        DUP 2/ DUP >R
+        CELL+ ALLOCATE THROW TO LastEncodedBuf
+        OVER + SWAP LastEncodedBuf
+        ROT ROT DO   \ a1
+          I W@
+          OVER W!
+          2+
+        4 +LOOP
+        0!
+        LastEncodedBuf R>
+    ;
+
+
+    : UTF8>S   \ ( a u -- a1 u1 ) \
+        UTF8>16L  LastEncodedBuf >R
+        UTF16L>S  R> FREE THROW
+    ;
+
+    : S>UTF8
+        S>UTF16L  LastEncodedBuf >R
+        UTF16L>8  R> FREE THROW
+    ;
+
+    : UTF8>32L
+        UTF8>16L  LastEncodedBuf >R
+        UTF16L>32L  R> FREE THROW
+    ;
+
+    : UTF32L>8
+        UTF32L>16L  LastEncodedBuf >R
+        UTF16L>8  R> FREE THROW
+    ;
+
+    : UTF16><   \ ( a u -- a u ) \ a: AABB -> BBAA
+        2DUP OVER + SWAP DO
+          I C@  I 1+ C@
+          I C!  I 1+ C!
+        2 +LOOP
+    ;
+
+    : UTF32><   \ ( a u -- a u ) \ a: AABBCCDD -> DDCCBBAA
+        2DUP OVER + SWAP DO
+          I C@  I 1+ C@  I 2+ C@  I 3 + C@
+          I C!  I 1+ C!  I 2+ C!  I 3 + C!
+        4 +LOOP
+    ;
+
+
+    : UTF16B>S   \ ( wa u -- a1 u1 ) \
+        UTF16>< UTF16L>S
+    ;
+
+    : UTF16B>8   \ ( wa u -- a1 u1 ) \
+        UTF16>< UTF16L>8
+    ;
+
+    : UTF16B>32B   \ ( wa u -- a1 u1 ) \
+        DUP 2* DUP >R
+        CELL+ ALLOCATE THROW TO LastEncodedBuf
+        OVER + SWAP LastEncodedBuf
+        ROT ROT DO   \ a1
+          I C@ OVER 3 + C!
+          I 1+ C@ OVER 2+ C!
+          4 +
+        2 +LOOP
+        0!
+        LastEncodedBuf R>
+    ;
+
+    : S>UTF16B   \ ( a u -- wa1 u1)
+        S>UTF16L UTF16><
+    ;
+
+    : UTF8>16B   \ ( a u -- wa1 u1)
+        UTF8>16L UTF16><
+    ;
+
+    : UTF32B>16B   \ ( wa u -- a1 u1 ) \
+        DUP 2/ DUP >R
+        CELL+ ALLOCATE THROW TO LastEncodedBuf
+        OVER + SWAP LastEncodedBuf
+        ROT ROT DO   \ a1
+          I 3 + C@ OVER 1+ C!
+          I 2+ OVER C!
+        4 +LOOP
+        0!
+        LastEncodedBuf R>
+    ;
+
+    : UTF8>32B
+        UTF8>32L UTF32><
+    ;
+
+    : UTF32B>8
+        UTF32>< UTF32L>8
+    ;
+
+    : UTF16B>32L
+        UTF16>< UTF16L>32L
+    ;
+
+    : UTF16L>32B
+        UTF16>< UTF16B>32B
+    ;
+
+    : UTF32B>16L
+        UTF32B>16B UTF16><
+    ;
+
+    : UTF32L>16B
+        UTF32L>16L UTF16><
+    ;
+
+    : S>UTF32L
+        S>UTF16L UTF16L>32L
+    ;
+
+    : S>UTF32B
+        S>UTF16L UTF16>< UTF16B>32B
+    ;
+
+    BASE @ HEX
+
+    \ Метка порядка байтов (Byte Order Mark) / неразрывный пробел с нулевой шириной / сигнатура
+    \ Файлы в кодировках UTF-16 и UTF-32 не содержащие BOM должны иметь порядок байтов big-endian
+    CREATE BOM-UTF8 EF C, BB C,  BF C,         0 W,
+    CREATE BOM-16B  FE C, FF C,                0 W,
+    CREATE BOM-16L  FF C, FE C,                0 W,
+    CREATE BOM-32B  00 C, 00 C,  FE C, FF C,   0 ,
+    CREATE BOM-32L  FF C, FE C,  00 C, 00 C,   0 ,
+
+    3 CONSTANT BOM-UTF8#
+    2 CONSTANT BOM-16B#
+    2 CONSTANT BOM-16L#
+    4 CONSTANT BOM-32B#
+    4 CONSTANT BOM-32L#
+
+    USER-VALUE BOM
+    USER-VALUE BOM#
+    : BOM-STR BOM BOM# ;
+
+    BASE !
+
+DEFINITIONS
+
+    \ Запись одного ASCII-символа как az-строки в кодофайл в соответствующей кодировке
+    : C0, C, 0 C,                   ;
+
+    : U8C,      C,                  ;
+    : U8C0,     C, 0 C,             ;
+
+    : U16BC,    0 C, C,             ;
+    : U16BC0,   U16BC, 0 W,         ;
+
+    : U16LC,    C, 0 C,             ;
+    : U16LC0,   U16BC, 0 W,         ;
+
+    : U32BC,    0 C, 0 C, 0 C,  C,  ;
+    : U32BC0,   U32BC, 0 ,          ;
+
+    : U32LC,    C, 0 C, 0 C, 0 C,   ;
+    : U32LC0,   U32LC, 0 ,          ;
+
+    \ Извлечение и запись символа как ASCII для различных кодировок
+    : 1+C@  1+ C@ ;
+    : 3+C@  3 + C@  ;
+
+    : 1+C!  1+ C! ;
+    : 3+C!  3 + C!  ;
+
+EXPORT
+
+    \ ### Режимы кодировок
+    : ASCII-STRINGS
+        USES NOOP <USE-ENCODE>
+        USES C@ <CHAR@>             USES C! <CHAR!>
+        USES C@ <CHAR-C@>           USES C! <CHAR-C!>
+        \ USES NOOP <UTF8-CHAR+>    \ USES C@ <STR-END?>
+        1 TO CHAR-LEN
+    ;
+
+    : UTF8-STRINGS
+        USES S>UTF8 <USE-ENCODE>
+        USES C@ <CHAR@>             USES C! <CHAR!>
+        USES C@ <CHAR-C@>           USES C! <CHAR-C!>
+        \ USES UTF8-CHAR+ <UTF8-CHAR+>        \ USES W@ <STR-END?>
+        1 TO CHAR-LEN     BOM-UTF8 TO BOM
+    ;
+
+    : UTF16B-STRINGS
+        USES S>UTF16B <USE-ENCODE>
+        USES W@ <CHAR@>             USES W! <CHAR!>
+        USES 1+C@ <CHAR-C@>         USES 1+C! <CHAR-C!>
+        \ USES NOOP <UTF8-CHAR+>              \ USES W@ <STR-END?>
+        2 TO CHAR-LEN     BOM-16B TO BOM
+    ;
+
+    : UTF16L-STRINGS
+        USES S>UTF16L <USE-ENCODE>
+        USES W@ <CHAR@>             USES W! <CHAR!>
+        USES C@ <CHAR-C@>           USES C! <CHAR-C!>
+        \ USES NOOP <UTF8-CHAR+>              \ USES W@ <STR-END?>
+        2 TO CHAR-LEN     BOM-16L TO BOM
+    ;
+
+    : UTF32B-STRINGS
+        USES S>UTF32B <USE-ENCODE>
+        USES @  <CHAR@>             USES !  <CHAR!>
+        USES 3+C@ <CHAR-C@>         USES 3+C! <CHAR-C!>
+        \ USES NOOP <UTF8-CHAR+>              \ USES @ <STR-END?>
+        4 TO CHAR-LEN     BOM-32B TO BOM
+    ;
+
+    : UTF32L-STRINGS
+        USES S>UTF32L <USE-ENCODE>
+        USES @  <CHAR@>             USES !  <CHAR!>
+        USES C@ <CHAR-C@>           USES C! <CHAR-C!>
+        \ USES NOOP <UTF8-CHAR+>              \ USES @ <STR-END?>
+        4 TO CHAR-LEN     BOM-32L TO BOM
+    ;
+\ ====================================================================================================================
+\ ### Буфер для сложения строк
+
+    USER-VALUE SPAD             \ Адрес строкового буфера SPAD
+    USER-VALUE SPAD#            \ Текущее число символов в строковом буфере SPAD
+    USER-VALUE SPAD-POS         \ Текущая свободная позиция в строковом буфере SPAD , SPAD-POS=SPAD+SPAD#
+    USER-VALUE /USER-SPAD       \ Текущий размер буфера SPAD
+    USER-VALUE LPAD             \ Начало последней строки в буфере SPAD
+    USER-VALUE LPAD#            \ Длина последней строки в буфере SPAD
+
+    \ USER-VALUE SPAD-LOOP?
+    \ : SPAD-LOOP-ON  TRUE TO SPAD-LOOP? ;
+    \ : SPAD-LOOP-OFF  FALSE TO SPAD-LOOP? ;
+
+    : SPAD@   \ ( -- a u ) \ Получить содержимое буфера SPAD
+        SPAD SPAD#
+    ;
+
+    : LPAD@   \ ( -- a u ) \ Получить последнюю строку a u из буфера SPAD
+        LPAD LPAD#
+    ;
+
+    \ # Управление памятью для SPAD
+    : SPAD-FREE
+        SPAD FREE THROW
+        0 TO SPAD
+        0 TO SPAD#
+        0 TO LPAD
+        0 TO LPAD#
+        0 TO /USER-SPAD
+    ;
+
+    : SPAD-ALLOC   \ ( size -- ) \ Выделить под SPAD новый буфер с перемещением данных в него
+        LPAD SPAD - TO LPAD
+
+        DUP TO /USER-SPAD
+        ALLOCATE THROW
+        SPAD SPAD# AND
+        IF
+          DUP
+          SPAD-POS SPAD -
+          SPAD ROT SPAD# CMOVE
+          SPAD FREE THROW
+          OVER +
+        ELSE
+          DUP
+        THEN
+        TO SPAD-POS
+        TO SPAD
+
+        SPAD LPAD + TO LPAD
+    ;
+
+    : /SpadAlloc   \ ( -- ) \ Выделить для SPAD /SPAD байт
+        SPAD IF SPAD-FREE 0 TO SPAD THEN
+        /SPAD SPAD-ALLOC
+    ;
+
+    : STRINGS-INIT
+        STRINGS-INIT? IFNOT
+          ASCII-STRINGS
+          /SpadAlloc
+          TRUE TO STRINGS-INIT?
+        THEN
+    ;
+
+    \ USES STRINGS-INIT <STRINGS-INIT>
+
+    : SPAD-INIT   \ ( -- ) \ Инициировать строковый буфер SPAD начальным адресом.
+        0 0 SPAD 2!
+        SPAD TO SPAD-POS
+        SPAD TO LPAD
+        0 TO SPAD#
+        0 TO LPAD#
+    ;
+
+    \ ### Автоматическое упарвленеи размером буфера
+    : AUTOSPAD-ON   \ ( -- ) \ Включить автоизменение размера SPAD
+        TRUE  TO AUTOSPAD?  ;
+    : AUTOSPAD-OFF  \ ( -- ) \ Выключить автоизменение размера SPAD
+        FALSE TO AUTOSPAD?  ;
+
+    : AUTO-SPAD-CONTROL   \ ( n -- ) \ Проверка переполнения буфера SPAD и, если разрешено, автоматическое его увеличение с перемещением всех данных в новый участок памяти
+        AUTOSPAD? IF
+            CELL+ DUP /USER-SPAD > IF
+                /USER-SPAD /SPAD-NEWSIZE 100 */ MAX     \ Вычисляем новый размер для буфера: максимум от требуемого размера и /SPAD-NEWSIZE процентов размера буфера
+                DUP /SPAD-MAX > IF
+                    . ABORT" Переполнение буфера SPAD! Требуемый объем памяти меньше константы /SPAD-MAX"
+                ELSE
+                    SPAD-ALLOC
+                THEN
+            ELSE
+                DROP
+            THEN
+        ELSE
+            CELL+ /USER-SPAD > IF
+                ABORT" Переполнение буфера SPAD! Требуемый объем памяти меньше переменной /USER-SPAD"
+            THEN
+        THEN
+    ;
+
+    \ # Сложение строк в буфере SPAD
+    : SPAD+   \ ( a2 u2 -- ) \ Добавить строку со стека в буфер SPAD
+        DUP 0= IF 2DROP EXIT THEN           \ Пустую строку выкидываем
+        DUP SPAD# + DUP AUTO-SPAD-CONTROL        \ a1 u1  a2 u2 u1+u2
+        TO SPAD#                                 \ a1 u1  a2 u2
+        SPAD-POS                            \ a1 u1  a2 u2 a4
+        SWAP                                \ a1 u1  a2 a4 u2
+        2DUP + DUP TO SPAD-POS OFF          \ a1 u1  a2 a4 u2
+        CMOVE                               \ a1 u1
+        SPAD# LPAD SPAD - - TO LPAD#
+    ;
+
+    : SPAD!   \ ( a1 u1 -- ) \ Записать строку со стека в начало буфера SPAD
+        SPAD-INIT
+        SPAD+
+    ;
+
+    : SPAD!+   \ ( a1 u1 a2 u2 -- ) \ Сложить две строки в буфер SPAD
+        2SWAP SPAD!
+        SPAD+
+    ;
+
+    : LPAD-INIT   \ ( -- ) \ Запомнить текущую позицию в буфере SPAD как последнюю
+        SPAD-POS TO LPAD
+        0 TO LPAD#
+    ;
+
+    : 0SPAD!   \ ( -- ) \ Выровнить текущую позицию в SPAD по степени 4, заполнив нулями 4+(0-3) байт
+        0 0 SPAD-POS 2!
+        SPAD-POS CELL OVER CELL MOD - + CELL+  \ Выравниваем адрес и прибавляем ячейку
+        DUP SPAD-POS - SPAD# + TO SPAD#
+        TO SPAD-POS
+        LPAD-INIT
+    ;
+    
+DEFINITIONS
+
+    \ ### Буфер для строковых литералов
+
+    QUAN STRINGS[]        \ Буфер для строковых литералов.  [ Ячейка с размером строки | <строка> | ячейка с нулем ] [ следующий литерал ]
+    QUAN STRINGS-POS      \ Первый свободный байт для буфера STRINGS[]
+    QUAN STRINGS#
+
+    /STRINGS GLOBAL-ALLOCATE THROW
+    DUP TO STRINGS[] TO STRINGS-POS
+
+    : _ISLIT
+        STRINGS[] + DUP CELL+ SWAP @
+    ;
+
+    : _IZLIT
+        STRINGS[] + CELL+
+    ;
+
+    : asliteral   \ ( a_strings|spad u -- a u )
+    \ Только для внутреннего применения!
+    \ Режим выполнения: изменить указатель свободного адреса в SPAD, размер текущей строки в SPAD, записать в конец строки ноль, оставить строку на стеке
+    \ Режим компиляции скомпилировать строковый a u литерал
+        2DUP + DUP OFF
+        STATE @ IF
+            CELL+                                               \ a_strings u aend
+            CELL OVER CELL MOD - + TO STRINGS-POS               \ a_strings u \ Выравниваем по степени 4
+            STRINGS-POS STRINGS[] - TO STRINGS#
+            STRINGS# /STRINGS > IF
+                . . ABORT" Переполнение буфера STRINGS[]!"
+            THEN
+            OVER CELL- !
+            STRINGS[] - CELL-
+            [COMPILE] LITERAL POSTPONE _ISLIT
+        ELSE
+            DUP TO SPAD-POS OFF
+            DUP SPAD# + DUP AUTO-SPAD-CONTROL    \ a2 u2 u1+u2
+            TO SPAD#                             \ a2 u2
+        THEN
+    ;
+
+    : azliteral   \ ( az_strings|spad u -- az )
+        \ Только для внутреннего применения!
+        \ Режим выполнения: изменить указатель свободного адреса в SPAD, размер текущей строки в SPAD, записать в конец строки ноль, оставить строку на стеке
+        \ Режим выполнения: скомпилировать строковый az литерал
+        2DUP + DUP OFF
+        STATE @ IF
+            CELL+                                               \ a_strings u aend
+            CELL OVER CELL MOD - + TO STRINGS-POS                     \ a_strings u
+            STRINGS-POS STRINGS[] - TO STRINGS#
+            STRINGS# /STRINGS > IF
+                . . ABORT" Переполнение буфера STRINGS[]!"
+            THEN
+            OVER CELL- !
+            STRINGS[] - CELL-
+            [COMPILE] LITERAL POSTPONE _IZLIT
+        ELSE
+            DUP TO SPAD-POS OFF
+            DUP SPAD# + DUP AUTO-SPAD-CONTROL    \ a2 u2 u1+u2
+            TO SPAD#                             \ a2 u2
+            OVER + OFF
+        THEN
+    ;
+
+EXPORT
+
+    : isliteral   \ ( a u -- | a1 u1 ) \ Создать строковый a u литерал. Только для режима компиляции. Слово немедленнного исполнения.
+        SWAP OVER
+        STATE @ IF
+            STRINGS-POS CELL+ SWAP CMOVE
+            STRINGS-POS CELL+
+        ELSE
+            SPAD-POS SWAP CMOVE
+            SPAD-POS
+        THEN
+        SWAP
+        asliteral
+    ; IMMEDIATE
+
+    : izliteral   \ ( a u -- az ) \ Создать строковоый az литерал. Только для режима компиляции. Слово немедленного исполнения.
+        SWAP OVER
+        STATE @ IF
+            STRINGS-POS CELL+ SWAP CMOVE
+            STRINGS-POS CELL+
+        ELSE
+            SPAD-POS SWAP CMOVE
+            SPAD-POS
+        THEN
+        SWAP
+        azliteral
+    ; IMMEDIATE
+
+
+    : STRINGS>HERE   \ ( -- ) \ Переместить буфер со строковыми литералами в область HERE. Необходимо для сохранения литералов в скопилированном исполнимом файле
+        STRINGS[] HERE STRINGS# CMOVE
+        HERE TO STRINGS[]
+        STRINGS# ALLOT 0 ,
+        STRINGS# CELL+ TO /STRINGS
+    ;
+
+DEFINITIONS
+
+\ ---------------------------------------------------------------------------------------------------------------------------
+\ # Интерпретатор строк.
+    : STR2BUF,   \ ( a_spad u_spad a1 u1 -- a_spad u+u1_spad ) \ Сохранить строку в буфере
+        \ { a_spad u_spad a1 u1 -- a_spad u+u1_spad  }
+        \ a1 a_spad u_spad + u1 CMOVE
+        \ a_spad u_spad u1 +
+        >R                      \ a_spad u_spad  a1
+        2 PICK 2 PICK + R@      \ a_spad u_spad  a1  a_spad+u_spad  u1
+        CMOVE
+        R> +
+    ;
+
+    : CHAR-BUF,   \ ( a_spad u_spad a_i char -- a_spad u_spad+1 a_i+1 ) \ Сохранить символ в буфере
+        2>R                       \ a_spad u_spad
+        2DUP +                    \ a_spad ui_spad ai_spad
+        SWAP CHAR-LEN + SWAP      \ a_spad u_spad+1 ai_spad
+        2R> ROT                   \ a_spad u_spad+1 a_i char ai_spad
+        <CHAR!>                   \ a_spad u_spad+1 a_i
+    ;
+
+    \ : STR-BUF,   \ ( a_spad u_spad a_i a1 u1 -- a_spad u_spad+u1 a_i ) \ Сохранить символ в буфере
+        \ { a_spad u_spad ai a1 u1 -- a_spad u+u1_spad  }
+        \ a1 a_spad u_spad + u1 CMOVE
+        \ a_spad u_spad u1 +
+        \ ai
+    \ ;
+
+    : CHAR-NEXT-BUF,   \ ( a_spad u_spad a_i char -- a_spad u+1_spad a_i+1 ) \ Сохранить символ в буфере
+        CHAR-BUF, CHAR-LEN +
+    ;
+
+
+    : CCHAR-BUF,   \ ( a_spad u_spad a_i -- a_spad u_spad a_i ) \ Сохранить в буфере текущий символ, перейти к следующему символу
+        DUP <CHAR@> CHAR-NEXT-BUF,
+    ;
+
+    : init_at-chars[]  \ Инициализировать таблицу словом CCHAR-BUF,
+        256 0 DO ['] CCHAR-BUF, , LOOP
+    ;
+
+    CREATE at-chars[]       \ Таблица для токенов 256*CELL+CELL[0]
+    ' eval-stop ,           \ На нуле - стоп
+    init_at-chars[] 0 ,     \ Инициализируем таблицу
+
+EXPORT
+
+    : :AT-CHAR   \ ( char -- ) \
+        at-chars[] SWAP CELLS +
+        :NONAME
+    ;
+
+    : AT-CHAR:   \ ( " char" -> ) CODE: ( a_spad u_spad a_i -- a_spad u_spad a_i )
+        BL PARSE DROP C@ :AT-CHAR
+    ;
+
+    : ;AT-CHAR
+        [COMPILE] ;
+        SWAP !
+    ; IMMEDIATE
+
+DEFINITIONS
+
+    : get-spad   \ ( -- addr ) \ Получить адрес начала буфера для сохранения строки: в режиме интерпретации это строковый буфер SPAD, в режиме компиляции STRINGS-POS CELL+
+        STATE @ IF
+          STRINGS-POS CELL+
+          \ AddString? IFNOT          \ Это вот режим "каждый новый строковый литерал пишется в начало буфера"
+            \ POSTPONE SPAD-INIT
+          \ THEN
+        ELSE
+          \ AddString? IF
+            \ SPAD SPAD# +
+          \ ELSE
+            SPAD# /USER-SPAD REINIT-SPAD# 100 */ > IF   \ Циклическая запись в SPAD
+              SPAD-INIT SPAD
+            ELSE
+              SPAD-POS
+            THEN
+          \ THEN
+        THEN
+    ;
+
+    : at-str-end   \ ( a_spad u_spad --  a_spad u_spad | ... ) \ Конец интерпретации строки с подстроками
+        DUP IF    \ Строка не пустая
+            asliteral                   \ Строковый литерал
+            STATE @ LitInBuf? AND IF      \ Режим компиляции? Подстроки были?
+                POSTPONE SPAD+            \ Компилируем запись в буфер
+                POSTPONE LPAD@            \ Компилируем извлечение данных из буфера
+                POSTPONE LPAD-INIT        \ Инициализируем лпад для возможной следующей строки: проще его инициализировать после, чем вставлять перед какждым литералом
+            THEN
+        ELSE      \ Пустая строка
+            2DROP
+            STATE @ IF                    \ Режим компиляции
+                LitInBuf?  IF                 \ Подстроки были
+                    POSTPONE LPAD@                \ Компилируем получение результата
+                    POSTPONE LPAD-INIT            \ Инициализируем лпад для возможной следующей строки
+                ELSE                          \ Подстрок не было
+                    POSTPONE ""                   \ Компилируем пустую строку
+                THEN
+            ELSE                          \ Режим интерпретации
+                ""                            \ Возвращаем пустую строку
+            THEN
+        THEN
+    ;
+
+    : at-str-end-plus   \ ( a_spad u_spad --  a_spad u_spad | ... ) \ Конец интерпретации строки для режима сложения строк
+        DUP IF                        \ Строка не пустая
+            asliteral                       \ Строковый литерал
+            STATE @ IF                      \ Режим компиляции? Подстроки были?
+                POSTPONE SPAD+                  \ Компилируем запись в буфер
+            ELSE
+                LitInBuf? IF SPAD+ ELSE 2DROP THEN
+            THEN
+        ELSE                          \ Пустая строка
+            2DROP
+        THEN
+    ;
+
+\ ---------------------------------------------------------------------------------------------------------------------------
+\ ##### Расширение синтаксиса
+
+    \ # Конвертация строки в число
+    : is-number?   \ ( char -- ? )
+        0x30 0x3A WITHIN  \ 0-9
+    ;
+
+    : is-a-f?   \ ( char -- ? )
+        0x41 0x47 WITHIN  \ A-F
+    ;
+
+    : is-a1-f1?   \ ( char -- ? )
+        0x61 0x67 WITHIN  \ a-f
+    ;
+
+    : is-hnumber?   \ ( char -- ? )
+        DUP is-number?    \ 0-9
+        OVER is-a-f? OR
+        SWAP is-a1-f1? OR
+    ;
+
+    : char>number   \ ( num_char -- num )
+        0x30 -
+    ;
+
+    : hchar>number   \ ( num_char -- num )
+        DUP is-number? IF
+            0x30 -
+        ELSE
+            DUP is-a-f? IF
+                0x37 -
+            ELSE
+                0x57 -
+            THEN
+        THEN
+    ;
+
+  \ # Разбор подстрок с кодом
+    : char-get-pos   \ ( a char -- pos ) \
+        OVER BEGIN \ a char a
+            2DUP <CHAR-C@>   \ a char a-i char char-i
+            DUP IF      \ a char a-i char char-i
+                <>
+            ELSE
+                2DROP DROP OVER   \ a char a
+                0
+            THEN
+        WHILE
+            1+
+        REPEAT
+        NIP
+        - ABS
+    ;
+
+    : ?sub+   \ ( x y -- )
+        -
+        CASE
+            1 OF N>S SPAD+ ENDOF
+            2 OF SPAD+ ENDOF
+        ENDCASE
+    ;
+
+    : code-eval   \ ( a_spad u_spad a_i -- a_spad u_spad a_i ) \ Выполнить подстроку
+        CHAR-LEN + DUP [CHAR] % char-get-pos DUP IF   \ a_spad u_spad a_i pos
+
+            2DUP + CHAR-LEN + >R
+            2>R    \ a_spad u_spad    \ Сохраняем на стеке возвратов адрес следующего символа для интерпретации, глубину стека и найденную строку
+
+            DEPTH-CONTROL @ IF
+                DEPTH 2R> ROT >R 2>R   \ a_spad u_spad  R: depth a_sub u_sub    \ * Контроль глубины стека в режиме интерпретации
+            THEN
+            
+            STATE @ IF                                      \ * Компиляция кода сложения строк
+                DUP IF                                          \ Буфер не пустой?
+                    asliteral                                       \ Компилируем строку как литерал
+                    POSTPONE SPAD+                                  \ Код добавления строки в буфер
+                    STRINGS-POS CELL+ 0                             \ Возвращаем новый буфер
+                THEN
+                TRUE TO LitInBuf?                               \ Ставим флаг, что литерал в конце строки надо записать в буфер
+                DEPTH-CONTROL @ IF
+                    POSTPONE DEPTH POSTPONE >R                      \ * Контроль глубины стека в режиме выполнения
+                THEN
+            ELSE
+                asliteral
+            THEN
+
+            2R@ ['] EVALUATE CATCH                          \ * Интерпретация кода
+            IF                                                \ a_spad u_spad x err   \ Исполнение кода вызвало исключение — обработаем его
+                DUP -2003 = IF                                  \ a_spad u_spad x err   \ Слово не найдено — может быть это переменная окружения? Попробуем найти
+                    2DROP
+                    2R@ ENV DUP IF                                \ a_spad u_spad a_env u_env \ Переменная окружения найдена (не нулевой длины)? \ *** Сделать флаг включено/выключено
+                        STATE @ IF                                    \ * Компиляция кода получения переменной окружения
+                            2DROP                                         \ Выкидываем значение переменной окружения
+                            2R@ [COMPILE] isliteral                       \ Компилируем строковый литерал
+                            2DROP STRINGS-POS CELL+ 0                     \ Оставляем на стеке новый буфер для литералов вместо старого
+                            POSTPONE ENV                                  \ Компилируем слово получения переменной окружения
+                        \ POSTPONE SPAD+                                \ Компилируем код добавления переменной окружения в буфер \ * При выключенном котроле глубины — потенциальня ошибка, поэтому пока выключим
+                        THEN
+                    ELSE                                            \ Переменная окружения не найдена
+                        2DROP
+                        RDROP RDROP RDROP R> -2003 THROW                \ Вызываем исключение -2003
+                    THEN                    \ a_spad u_spad a1 u1
+                ELSE  \ a_spad u_spad a1 u1 0
+                    DROP
+                THEN
+            THEN  \ a_spad u_spad ... ?
+            
+            2R> 2DROP
+            DEPTH-CONTROL @ IF
+                STATE @ IF
+                    POSTPONE DEPTH POSTPONE R> POSTPONE ?sub+       \ Контроль глубины стека в режиме выполнения
+                ELSE
+                    DEPTH R@ -                    \ a_spad u_spad ... ?  \ Контроль глубины стека в режиме интерпретации
+                    CASE
+                        1 OF N>S STR2BUF, ENDOF
+                        2 OF STR2BUF, ENDOF
+                    ENDCASE
+                THEN
+                RDROP
+            ELSE
+                STATE @ IF
+                    POSTPONE SPAD+
+                ELSE
+                    STR2BUF,
+                THEN
+            THEN
+            R>
+            
+        ELSE
+            DROP ABORT" Пустая или не ограниченная служебным символом '%' подстрока!"
+        THEN
+    ;
+
+    \ # Преобразование строки в число. Главная фишка — это вектор <CHAR-C@> . Он отвечает за получение ASCII-кода символа в зависимости от текущей кодировки.
+    \ Это возможно благодаря тому, что в юникоде ASCII-символы с тем же кодом, но отличается лишь формат — один, два или четыре байта.
+    \ <CHAR-C@> как раз и извлекает байт из соответствующей кодировке позиции.
+    \ : get-hnum   \ ( addr -- addr1 number )
+        \ 0 BEGIN OVER <CHAR-C@> DUP is-hnumber? WHILE
+            \ hchar>number SWAP 0x10 * +
+            \ SWAP CHAR-LEN + SWAP
+        \ REPEAT
+        \ DROP
+    \ ;
+
+    \ : get-num   \ ( addr -- addr1 number )
+        \ 0 BEGIN OVER <CHAR-C@> DUP is-number? WHILE
+            \ char>number SWAP 10 * +
+            \ SWAP CHAR-LEN + SWAP
+        \ REPEAT
+        \ DROP
+    \ ;
+
+    : get-hnum   \ ( addr -- addr1 number )
+        \ 0 BEGIN OVER <CHAR-C@> DUP is-hnumber? WHILE
+            \ hchar>number SWAP 0x10 * +
+            \ SWAP CHAR-LEN + SWAP
+        \ REPEAT DROP
+        0 2 0 DO
+            OVER <CHAR-C@> DUP is-hnumber? IF
+                hchar>number SWAP 0x10 * +
+                SWAP CHAR-LEN + SWAP
+            ELSE
+                DROP
+            THEN
+        LOOP
+    ;
+
+    : get-num   \ ( addr -- addr1 number )
+        \ 0 BEGIN OVER <CHAR-C@> DUP is-number? WHILE
+            \ char>number SWAP 10 * +
+            \ SWAP CHAR-LEN + SWAP
+        \ REPEAT DROP
+        DUP 3 S>NUM SWAP CHAR-LEN 3 * + SWAP
+    ;
+
+    \ 2VARIABLE temp_dvar 0 , 0 ,
+
+    \ : num2buf,
+        \ temp_dvar !
+        \ temp_dvar 0 BEGIN 2DUP + C@ WHILE
+            \ 1+
+        \ REPEAT
+        \ STR-BUF,
+    \ ;
+
+\ -------------------------------------------------------------------------------------------------
+\ Эскейп-последовательности
+
+  \ :NONAME
+    ESC-CHAR :AT-CHAR   \ ( a_spad u_spad a_i -- a_spad u_spad a_i )
+        ESC-OFF? IF
+            CCHAR-BUF,
+        ELSE
+            DUP CHAR-LEN + <CHAR-C@> ESC-CHAR = IF
+                CCHAR-BUF, CHAR-LEN +
+            ELSE
+                DUP CHAR-LEN + <CHAR-C@> is-number? IF
+                    CHAR-LEN +
+                    get-num CHAR-BUF,
+                ELSE
+                    escape-on
+                    CHAR-LEN +
+                THEN
+            THEN
+        THEN
+    ;AT-CHAR
+
+    AT-CHAR: q
+        escape? IF
+            [CHAR] " CHAR-NEXT-BUF,
+            escape-off
+        ELSE  CCHAR-BUF,  THEN
+    ;AT-CHAR
+
+    AT-CHAR: Q
+        escape? IF
+            [CHAR] ' CHAR-NEXT-BUF,
+            escape-off
+        ELSE  CCHAR-BUF,  THEN
+    ;AT-CHAR
+
+    AT-CHAR: t
+        escape? IF
+            9 CHAR-NEXT-BUF,
+            escape-off
+        ELSE  CCHAR-BUF,  THEN
+    ;AT-CHAR
+
+    AT-CHAR: v
+        escape? IF
+            0xB CHAR-NEXT-BUF,
+            escape-off
+        ELSE  CCHAR-BUF,  THEN
+    ;AT-CHAR
+
+    AT-CHAR: r
+        escape? IF
+            0xD CHAR-NEXT-BUF,
+            escape-off
+        ELSE  CCHAR-BUF,  THEN
+    ;AT-CHAR
+
+    AT-CHAR: n
+        escape? IF
+            0xA CHAR-NEXT-BUF,
+            escape-off
+        ELSE  CCHAR-BUF,  THEN
+    ;AT-CHAR
+
+    AT-CHAR: N
+        escape? IF
+            0xD CHAR-BUF,
+            0xA CHAR-NEXT-BUF,
+            escape-off
+        ELSE  CCHAR-BUF,  THEN
+    ;AT-CHAR
+
+    AT-CHAR: x
+        escape? IF
+            CHAR-LEN +
+            get-hnum CHAR-BUF,
+            escape-off
+        ELSE  CCHAR-BUF,  THEN
+    ;AT-CHAR
+
+    AT-CHAR: %
+        escape? IF
+            [CHAR] % CHAR-NEXT-BUF,
+            escape-off
+        ELSE
+            code-eval
+        THEN
+    ;AT-CHAR
+
+EXPORT
+
+  \ : S\   \ ( -- ) \ Выключает обработку служебных символов в строке
+    \ ['] CCHAR-BUF, at-chars[] ESC-CHAR CELLS + !
+  \ ;
+
+  \ : \S   \ ( -- ) \ Включает обработку служебных символов в строке (режим по-умолчанию)
+    \ ESC-XT at-chars[] ESC-CHAR CELLS + !
+  \ ;
+
+\ -------------------------------------------------------------------------------------------------
+\ ### Главный цикл
+    : EVAL   \ ( a u -- a1 u1 ) \ Режим выполнения: В зависимости от содержимого строки вернет либо один строковый литерал, либо результат сложения подстрок и результата выполнения кода. Пустые строки игнорируются. Режим компиляции: В зависимости от содержимого строки будет скомпилирован либо один строковый литерал, либо один и более строковых литералов, код из подстрок, код для автоматического сложения литералов и результатов выполнения кода. Пустые строки игнорируются.
+        \ Не хочется делать кучу разных слов для совместимости между a u и az строками, поэтому сделаем так:
+        \   - сохраняем на стеке символ после последнего символа в строке
+        \   - записываем туда ноль и работаем как с az строкой
+        \   - после обработки востанавливаем по конечному адресу символ
+
+        \ <STRINGS-INIT>   \ Инициализиурем все необходимые параметры
+
+        STATE @ IF
+            STRINGS-INIT
+            POSTPONE STRINGS-INIT
+            POSTPONE 0SPAD!
+        ELSE
+            STRINGS-INIT
+            0SPAD!
+        THEN
+
+        EVAL-STOP? >R
+        escape? >R
+        LitInBuf? >R
+        ESC-OFF? >R
+
+        FALSE TO EVAL-STOP?
+        FALSE TO escape?
+        FALSE TO LitInBuf?
+
+        OVER +            \ a  a_end                      \ Получаем конец строки
+        DUP DUP C@        \ a  a_end  a_end  char_end     \ ... символ и адрес сохраняем на стеке
+        0 ROT C!          \ a  a_end  char_end            \ Записываем в его позицию ноль
+        SWAP 2>R          \ a   \ R: char_end  a_end      \ На стеке начальный адрес исходной строки
+
+        get-spad 0 ROT    \ a_spad 0  a                   \ Адрес буфера для сохранения результата, размер результата, начальный адрес строки
+
+        BEGIN   \ a_spad u_spad a_i
+            DUP <CHAR-C@> CELLS at-chars[] + @ EXECUTE
+            EVAL-STOP?
+        UNTIL  \ a_result u_result a_i
+        DROP
+
+        at-str-end
+        
+        2R> C!                              \ Восстанавливаем затертый символ после конца строки
+
+        R> TO ESC-OFF?
+        R> TO LitInBuf?
+        R> TO escape?
+        R> TO EVAL-STOP?
+    ;
+
+    : EVAL+   \ ( a u -- ) \ Режим выполнения: В зависимости от содержимого строки вернет либо один строковый литерал, либо результат сложения подстрок и результата выполнения кода. Пустые строки игнорируются. Режим компиляции: В зависимости от содержимого строки будет скомпилирован либо один строковый литерал, либо один и более строковых литералов, код из подстрок, код для автоматического сложения литералов и результатов выполнения кода. Пустые строки игнорируются.
+        \ Не хочется делать кучу разных слов для совместимости между a u и az строками, поэтому сделаем так:
+        \   - сохраняем на стеке символ после последнего символа в строке
+        \   - записываем туда ноль и работаем как с az строкой
+        \   - после обработки востанавливаем по конечному адресу символ
+
+        \ <STRINGS-INIT>   \ Инициализиурем все необходимые параметры
+
+        STATE @ IF
+            STRINGS-INIT
+            POSTPONE STRINGS-INIT
+        ELSE
+            STRINGS-INIT
+        THEN
+
+        EVAL-STOP? >R
+        escape? >R
+        LitInBuf? >R
+        ESC-OFF? >R
+
+        FALSE TO EVAL-STOP?
+        FALSE TO escape?
+        FALSE TO LitInBuf?
+
+        OVER +            \ a  a_end                      \ Получаем конец строки
+        DUP DUP C@        \ a  a_end  a_end  char_end     \ ... символ и адрес сохраняем на стеке
+        0 ROT C!          \ a  a_end  char_end            \ Записываем в его позицию ноль
+        SWAP 2>R          \ a   \ R: char_end  a_end      \ На стеке начальный адрес исходной строки
+
+        get-spad 0 ROT    \ a_spad 0  a                   \ Адрес буфера для сохранения результата, размер результата, начальный адрес строки
+
+        BEGIN   \ a_spad u_spad a_i
+            DUP <CHAR-C@> CELLS at-chars[] + @ EXECUTE
+            EVAL-STOP?
+        UNTIL  \ a_result u_result a_i
+        DROP
+
+        at-str-end-plus
+
+        2R> C!                              \ Восстанавливаем затертый символ после конца строки
+
+        R> TO ESC-OFF?
+        R> TO LitInBuf?
+        R> TO escape?
+        R> TO EVAL-STOP?
+    ;
+
+\ -------------------------------------------------------------------------------------------------
+\ Строковые литералы
+
+    : "   \ ( " <any text>" -> az u ) \ Строковый литерал az u
+        [CHAR] " PARSE
+        \ ESC-OFF? >R ESC-ON
+        EVAL
+        \ R> TO ESC-OFF?
+    ; IMMEDIATE
+
+    : s'   \ ( ' <any text>' -> az u ) \ Строковый литерал az u
+        [CHAR] ' PARSE
+        \ ESC-OFF? >R ESC-ON
+        EVAL
+        \ R> TO ESC-OFF?
+    ; IMMEDIATE
+
+    : z"   \ ( " <any text>" -> az ) \ Строковый литерал az
+        [CHAR] " PARSE
+        \ ESC-OFF? >R ESC-ON
+        EVAL
+        \ R> TO ESC-OFF?
+        STATE @ IF POSTPONE DROP ELSE DROP THEN
+    ; IMMEDIATE
+
+    : z'   \ ( ' <any text>' -> az ) \ Строковый литерал az
+        [CHAR] ' PARSE
+        \ ESC-OFF? >R ESC-ON
+        EVAL
+        \ R> TO ESC-OFF?
+        STATE @ IF POSTPONE DROP ELSE DROP THEN
+    ; IMMEDIATE
+
+    : +"   \ ( " <any text>" -> ) \ Дописать в строковый буфер строку
+        [CHAR] " PARSE
+        \ ESC-OFF? >R ESC-ON
+        EVAL+
+        \ R> TO ESC-OFF?
+    ; IMMEDIATE
+
+    : +'   \ ( ' <any text>' -> ) \ Дописать в строковый буфер строку
+        [CHAR] ' PARSE
+        \ ESC-OFF? >R ESC-ON
+        EVAL+
+        \ R> TO ESC-OFF?
+    ; IMMEDIATE
+
+
+
+    : "s   \ ( " <any text>" -> ) \ Строковый az u литерал без служебных символов
+        [CHAR] " PARSE
+        \ [COMPILE] isliteral
+        ESC-OFF? >R ESC-OFF
+        EVAL
+        R> TO ESC-OFF?
+    ; IMMEDIATE
+
+    : 's   \ ( ' <any text>' -> ) \ Строковый az u литерал без служебных символов
+        [CHAR] ' PARSE
+        \ [COMPILE] isliteral
+        ESC-OFF? >R ESC-OFF
+        EVAL
+        R> TO ESC-OFF?
+    ; IMMEDIATE
+
+    : "z   \ ( " <any text>" -> ) \ Строковый az литерал без служебных символов
+        [CHAR] " PARSE
+        \ [COMPILE] izliteral
+        ESC-OFF? >R ESC-OFF
+        EVAL
+        R> TO ESC-OFF?
+        STATE @ IF POSTPONE DROP ELSE DROP THEN
+    ; IMMEDIATE
+
+    : 'z   \ ( " <any text>" -> ) \ Строковый az литерал без служебных символов
+        [CHAR] ' PARSE
+        \ [COMPILE] izliteral
+        ESC-OFF? >R ESC-OFF
+        EVAL
+        R> TO ESC-OFF?
+        STATE @ IF POSTPONE DROP ELSE DROP THEN
+    ; IMMEDIATE
+
+    : '+   \ ( ' <any text>' -> ) \ Дописать в строковый буфер строку без служебных символов
+        [CHAR] ' PARSE
+        \ [COMPILE] isliteral
+        \ STATE @ IF POSTPONE SPAD+ ELSE SPAD+ THEN
+        ESC-OFF? >R ESC-OFF
+        EVAL+
+        R> TO ESC-OFF?
+    ; IMMEDIATE
+
+    : "+   \ ( ' <any text>' -> ) \ Дописать в строковый буфер строку без служебных символов
+        [CHAR] " PARSE
+        \ [COMPILE] isliteral
+        \ STATE @ IF POSTPONE SPAD+ ELSE SPAD+ THEN
+        ESC-OFF? >R ESC-OFF
+        EVAL+
+        R> TO ESC-OFF?
+    ; IMMEDIATE
+
+;MODULE

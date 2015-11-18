@@ -1,0 +1,66 @@
+MODULE: KeyBoardLed
+
+  WINAPI: DefineDosDeviceA kernel32.dll
+  WINAPI: DeviceIoControl  kernel32.dll
+
+  0x40000000 CONSTANT GENERIC_WRITE
+  \         3 CONSTANT OPEN_EXISTING
+  \        -1 CONSTANT INVALID_HANDLE_VALUE
+
+           1 CONSTANT DDD_RAW_TARGET_PATH
+  0x000B0008 CONSTANT IOCTL_KEYBOARD_SET_INDICATORS
+  0x000B0040 CONSTANT IOCTL_KEYBOARD_QUERY_INDICATORS
+
+  : KbdPs2DeviceOpen ( -- DeviceHandle )
+    S" \Device\KeyboardClass0" DROP
+    S" nnCronKeyboardControl" DROP
+    DDD_RAW_TARGET_PATH DefineDosDeviceA DROP
+    0 0 OPEN_EXISTING 0 0 GENERIC_WRITE S" \\.\nnCronKeyboardControl" DROP CreateFileA
+  ;
+
+  : KbdPs2LedSetAll ( LedMask DeviceHandle -- IoFlag )
+    >R \ DeviceHandle
+    16 LSHIFT SP@ >R \ input buffer, KEYBOARD_INDICATOR_PARAMETERS
+    0 SP@ 0 SWAP 0 0 4 R> IOCTL_KEYBOARD_SET_INDICATORS R> DeviceIoControl \ 0 - error
+    >R DROP DROP R>
+  ;
+
+  : KbdPs2LedGetAll ( DeviceHandle -- LedMask IoFlag )
+    >R
+    0 SP@ >R \  output buffer
+    0 SP@ 0 SWAP 4 R> 0 0 IOCTL_KEYBOARD_QUERY_INDICATORS R> DeviceIoControl
+    >R DROP 16 RSHIFT R>
+  ;
+
+EXPORT
+
+   4 CONSTANT Caps   \ KEYBOARD_CAPS_LOCK_ON
+   2 CONSTANT Num    \ KEYBOARD_NUM_LOCK_ON
+   1 CONSTANT Scroll \ KEYBOARD_SCROLL_LOCK_ON
+           
+  : LedOn ( Led --  )  \ Включить индикатор
+    KbdPs2DeviceOpen DUP >R KbdPs2LedGetAll DROP OR 
+    R@ KbdPs2LedSetAll R> CloseHandle 
+    2DROP
+  ;
+
+  : LedOff ( Led -- )  \ Выключить индикатор
+    INVERT KbdPs2DeviceOpen DUP >R KbdPs2LedGetAll DROP AND 
+    R@ KbdPs2LedSetAll R> CloseHandle 
+    2DROP
+  ;
+  
+  : LedOn? ( Led -- ? )  \ Вернуть состояние индикатора
+    KbdPs2DeviceOpen DUP >R KbdPs2LedGetAll >R AND R> R> CloseHandle 2DROP 0<>
+  ;
+  
+  : LedInvert   ( Led -- )
+    DUP LedOn?
+      IF
+        LedOff
+      ELSE
+        LedOn
+      THEN
+  ;
+
+;MODULE

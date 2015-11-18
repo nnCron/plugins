@@ -1,0 +1,165 @@
+\ Файл:       arcfour.spf
+\ Автор:      VoidVolker
+\ Дата:       08/01/2012 13:22
+\ Версия:     1.0
+\ Описание:   Шифрование по алгоритму arcfour. Использована библиотека http://home.earthlink.net/~neilbawd/arcfour.txt
+\ Пример:
+\ S" Тест шифрования по алгоритму arcfour" S" password" ARC4 2DUP TYPE CR S" password" ARC4 TYPE CR
+
+MODULE: ARCFOUR_MODULE
+
+\ ANEW --ARCFOUR--  DECIMAL                     \  Neil Bawd  2003-02-23
+\  *******************************************************************
+\  *                                                                 *
+\  *  Neil Bawd  2002-08-07                                          *
+\  *                                                                 *
+\  *     ARCFOUR - Alleged RC4                                       *
+\  *                                                                 *
+\  *  In 1987 Ron Rivest developed the RC4 cipher-system for RSA     *
+\  *  Data Security, Inc. It used a well-guarded proprietary trade   *
+\  *  secret. The system was popular and is used in several hundred  *
+\  *  commercial cryptography products, including Lotus Notes,       *
+\  *  Apple Computer's AOCE, and Oracle Secure SQL. It is part of    *
+\  *  the Cellular Digital Packet Data Specification, and is used    *
+\  *  by Internet Explorer, Netscape, and Adobe Acrobat.             *
+\  *                                                                 *
+\  *  Seven years later, source code alleged to be equivalent to     *
+\  *  RC4 was published anonymously on the Cypherpunks mailing       *
+\  *  list.  Users with legal copies of RC4 confirmed                *
+\  *  compatibility.                                                 *
+\  *                                                                 *
+\  *  The code is extremely simple and can be written by most        *
+\  *  programmers from the description.                              *
+\  *                                                                 *
+\  *******************************************************************
+
+\    We have an array of 256 bytes, all different.
+
+\    Every time the array is used it changes - by swapping
+\    two bytes.
+
+\    The swaps are controlled by counters _i_ and _j_, each
+\    initially 0.
+
+\    To get a new _i_, add 1.
+
+\    To get a new _j_, add the array byte at the new _i_.
+
+\    Exchange the array bytes at _i_ and _j_.
+
+\    The code is the array byte at the sum of the array bytes
+\    at _i_ and _j_.
+
+\    This is XORed with a byte of the plaintext to encrypt, or
+\    the ciphertext to decrypt.
+
+\    The array is initialized by first setting it to 0 through
+\    255. Then step through it using _i_ and _j_, getting the new
+\    _j_ by adding to it the array byte at _i_ and a key byte, and
+\    swapping the array bytes at _i_ and _j_.  Finally, _i_ and _j_
+\    are set to 0.
+
+\    All additions are modulo 256.
+
+\  The cipher key to be used when initializing can be up to 256
+\  bytes, i.e., 2048 bits.  It works best when it's shorter so
+\  the randomizing done at initialization can thoroughly shuffle
+\  the array.  At most 64 bytes are recommended for the key.
+
+\  The name "RC4" is trademarked by RSA Data Security, Inc. So
+\  anyone who writes his own code has to call it something else.
+\  In 1997 I called it ARCIPHER. ARCFOUR has been since
+\  widely accepted as the name of the alleged RC4.
+
+\  It is popular because it is small, fast, and believed to be
+\  secure.
+
+\  It's a rare example of Cheap, Fast, and Good.
+
+\  For further information, see http://ciphersaber.gurus.com
+
+\  The following Standard Forth version uses Core words only.
+\  The number of fetches and stores in `ARCFOUR` has been
+\  minimized.  There is no need to optimize `ARCFOUR-INIT`.
+\  ****************************  ARCFOUR  ****************************
+
+\  Implementation dependency on 1 CHARS is 1.
+
+\  All arithmetic modulo 256.
+\  i = i + 1
+\  j = j + S[i]
+\  temp = S[i]; S[i] = S[j]; S[j] = temp
+\  temp = S[S[i]+S[j]]
+\  return char xor temp
+
+\ Insignificant mods to Neil Bawd's code were made for 
+\   use under kForth -- Krishna Myneni, 2002-04-26
+
+  VARIABLE &I   VARIABLE &J
+  CREATE &S  256 CHARS ALLOT
+   \ @ and ! may be replaced by C@ and C!.
+  : ARCFOUR  ( c -- x )
+       \ All arithmetic modulo 256.
+       \ i = i + 1
+      &I @  1+  DUP &I !  255 AND   ( . i)
+
+       \ j = j + S[i]
+      &S +  DUP C@          ( . &S[i] S[i])
+      DUP &J @ +  255 AND   ( . &S[i] S[i] j)
+      DUP &J !
+
+       \ temp = S[i]; S[i] = S[j]; S[j] = temp
+      &S +  DUP C@          ( . &S[i] S[i] &S[j] S[j])
+      >R  OVER SWAP C!      ( . &S[i] S[i])( R: S[j])
+      R@ ROT C!             ( . S[i])
+
+       \ temp = S[i]; S[i] = S[j]; S[j] = temp
+      R> +                  ( . S[i]+S[j])( R: )
+      255 AND &S + C@       ( c x)
+
+       \ return char xor temp
+      XOR ( x)
+  ;
+
+  : ARCFOUR-INIT              ( key len -- )
+       \ Set array to 0 through 255.
+      256 0 DO  I DUP &S + C!  LOOP
+
+      0 &J !
+      256 0 DO                        ( key len)
+           \ Get new j by adding array byte at i and a key byte.
+          2DUP I SWAP MOD + C@  I &S + C@ +
+              &J @ +  255 AND  &J !
+           \ Swap array bytes at i and j.
+          I &S + C@  &J @ &S +  &J @ &S + C@  I &S +  C! C!
+      LOOP  2DROP                     ( )
+
+       \ Set i and j to 0.
+      0 &I !  0 &J !
+  ;
+
+  \ *****************************  Test  ******************************
+  \ This is one of many tests to validate the code.  It
+  \ works with any correct version of `ARCFOUR`.
+
+  \ HERE  HEX  061 C, 08A C, 063 C, 0D2 C, 0FB C, DECIMAL DUP 16 DUMP 5 ARCFOUR-INIT CR
+  \ HEX 0DC ARCFOUR . 0EE ARCFOUR . 04C ARCFOUR .  0F9 ARCFOUR . 02C ARCFOUR . DECIMAL
+  \ CR .( Should be: F1 38 29 C9 DE )
+
+  \ ********************  End of ARCFOUR  ********************
+
+EXPORT
+
+  : ARC4   \ ( a u akey ukey -- a_arc4 u_arc4 )
+    2 PICK 0<>  OVER 0<> AND   \ Защита от пустых строк
+    IF
+      2OVER 2SWAP
+      ARCFOUR-INIT                            \ Инициализируем ключ
+      OVER + SWAP DO I C@ ARCFOUR I C! LOOP   \ Шифруем строку
+      &S 256 ERASE  &I OFF &J OFF             \ Очищаем ключ и переменные
+    ELSE 
+      2DROP 2DROP S" "
+    THEN
+  ;
+
+;MODULE

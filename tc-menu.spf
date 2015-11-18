@@ -1,0 +1,79 @@
+\ Файл[File]:             tc-menu.spf
+\ Автор[Author]:          VoidVolker
+\ Дата[Date]:             08/02/2010 18:12
+\ Описание[Description]:  Создание пользовательских меню для Total Commander.
+
+\ Использование. 
+
+\ TcMenu: <Название меню с любыми символами до конца строки>
+\ NewItem
+\ S" path\program.exe" TcmButton
+\ S" path\program.exe" TcmCmd
+\ S" path\" TcmPath
+\ S" 0" TcmIconic
+\ S" Программа" TcmMenu
+\ S" C:\<путь к TC>\my-menu.bar" TcMenuSave
+
+
+MODULE: TCM_MODULE
+
+  VARIABLE tcm-bc
+  2VARIABLE tc-menu-name
+  2VARIABLE cur-menu
+
+  : add-param   \ ( a u -- )
+    tcm-bc @ N>S S+ S" =" S+ 2SWAP S+ CRLF S+ 
+    cur-menu 2@ 2SWAP S+ cur-menu 2!
+  ;
+
+  : tc-init   \ ( a u -- )
+    tc-menu-name 2!
+    2 tcm-bc !
+    S" " cur-menu 2!
+  ;
+
+EXPORT
+
+  : TcMenu:  \ ( <Название меню до конца строки> -> )
+    0 PARSE [COMPILE] SLITERAL
+    POSTPONE tc-init
+  ; IMMEDIATE
+
+  : TcMenuSave   \ ( a u -- ) \ a u - путь для сохранения меню
+    S" [Buttonbar]" CRLF S+
+    S" Buttoncount=" S+ tcm-bc @ N>S S+ CRLF S+
+    S" button1=totalcmd.exe,10" S+ CRLF S+
+    S" cmd1=default.bar" S+ CRLF S+
+    S" iconic1=0" S+ CRLF S+
+    S" menu1=" S+ tc-menu-name 2@ S+ CRLF S+
+    S" button2=" S+ CRLF S+
+    S" iconic2=0" S+ CRLF S+
+    cur-menu 2@ S+
+    2SWAP FWRITE
+  ;
+
+  : NewItem   \ ( -- ) \ Начать создание новго пункта меню - вызывать каждый раз перед добавлением нового пункта
+    1 tcm-bc +!
+  ;
+
+  : TcmButton   \ ( a u -- )
+    S" button" add-param
+  ;
+
+  : TcmCmd   \ ( a u -- )
+    S" cmd" add-param
+  ;
+
+  : TcmPath   \ ( a u -- )
+    S" path" add-param
+  ;
+
+  : TcmIconic   \ ( a u -- )
+    S" iconic" add-param
+  ;
+
+  : TcmMenu   \ ( a u -- )
+    S" menu" add-param
+  ;
+
+;MODULE
