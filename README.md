@@ -6,6 +6,21 @@
 
 ---
 
-# List
+## List
 
-<empty>
+* arcfour
+* asm
+* autostrin
+* comport
+* disasm
+* extwords
+* file-attributes
+* kb-led
+* lists
+* menu
+* read-by-line
+* registry
+* sendinput
+* strings
+* tc-menu
+* tc-menu-generator
