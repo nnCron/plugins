@@ -1,18 +1,18 @@
-\ Файл[File]:             tc-menu.spf
-\ Автор[Author]:          VoidVolker
-\ Дата[Date]:             08/02/2010 18:12
-\ Описание[Description]:  Создание пользовательских меню для Total Commander.
+\ Р¤Р°Р№Р»[File]:             tc-menu.spf
+\ РђРІС‚РѕСЂ[Author]:          VoidVolker
+\ Р”Р°С‚Р°[Date]:             08/02/2010 18:12
+\ РћРїРёСЃР°РЅРёРµ[Description]:  РЎРѕР·РґР°РЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёС… РјРµРЅСЋ РґР»СЏ Total Commander.
 
-\ Использование. 
+\ РСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ.
 
-\ TcMenu: <Название меню с любыми символами до конца строки>
+\ TcMenu: <РќР°Р·РІР°РЅРёРµ РјРµРЅСЋ СЃ Р»СЋР±С‹РјРё СЃРёРјРІРѕР»Р°РјРё РґРѕ РєРѕРЅС†Р° СЃС‚СЂРѕРєРё>
 \ NewItem
 \ S" path\program.exe" TcmButton
 \ S" path\program.exe" TcmCmd
 \ S" path\" TcmPath
 \ S" 0" TcmIconic
-\ S" Программа" TcmMenu
-\ S" C:\<путь к TC>\my-menu.bar" TcMenuSave
+\ S" РџСЂРѕРіСЂР°РјРјР°" TcmMenu
+\ S" C:\<РїСѓС‚СЊ Рє TC>\my-menu.bar" TcMenuSave
 
 
 MODULE: TCM_MODULE
@@ -22,7 +22,7 @@ MODULE: TCM_MODULE
   2VARIABLE cur-menu
 
   : add-param   \ ( a u -- )
-    tcm-bc @ N>S S+ S" =" S+ 2SWAP S+ CRLF S+ 
+    tcm-bc @ N>S S+ S" =" S+ 2SWAP S+ CRLF S+
     cur-menu 2@ 2SWAP S+ cur-menu 2!
   ;
 
@@ -34,12 +34,12 @@ MODULE: TCM_MODULE
 
 EXPORT
 
-  : TcMenu:  \ ( <Название меню до конца строки> -> )
+  : TcMenu:  \ ( <РќР°Р·РІР°РЅРёРµ РјРµРЅСЋ РґРѕ РєРѕРЅС†Р° СЃС‚СЂРѕРєРё> -> )
     0 PARSE [COMPILE] SLITERAL
     POSTPONE tc-init
   ; IMMEDIATE
 
-  : TcMenuSave   \ ( a u -- ) \ a u - путь для сохранения меню
+  : TcMenuSave   \ ( a u -- ) \ a u - РїСѓС‚СЊ РґР»СЏ СЃРѕС…СЂР°РЅРµРЅРёСЏ РјРµРЅСЋ
     S" [Buttonbar]" CRLF S+
     S" Buttoncount=" S+ tcm-bc @ N>S S+ CRLF S+
     S" button1=totalcmd.exe,10" S+ CRLF S+
@@ -52,7 +52,7 @@ EXPORT
     2SWAP FWRITE
   ;
 
-  : NewItem   \ ( -- ) \ Начать создание новго пункта меню - вызывать каждый раз перед добавлением нового пункта
+  : NewItem   \ ( -- ) \ РќР°С‡Р°С‚СЊ СЃРѕР·РґР°РЅРёРµ РЅРѕРІРіРѕ РїСѓРЅРєС‚Р° РјРµРЅСЋ - РІС‹Р·С‹РІР°С‚СЊ РєР°Р¶РґС‹Р№ СЂР°Р· РїРµСЂРµРґ РґРѕР±Р°РІР»РµРЅРёРµРј РЅРѕРІРѕРіРѕ РїСѓРЅРєС‚Р°
     1 tcm-bc +!
   ;
 

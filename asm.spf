@@ -1,13 +1,13 @@
-\ Файл:       asm.spf
-\ Автор:      VoidVolker
-\ Дата:       05/11/2012 11:57
-\ Версия:     1.1
-\ Описание:   Ассемблер для ннкрона. Взят из дистрибутива спф.
-\ Слова:
+\ Р¤Р°Р№Р»:       asm.spf
+\ РђРІС‚РѕСЂ:      VoidVolker
+\ Р”Р°С‚Р°:       05/11/2012 11:57
+\ Р’РµСЂСЃРёСЏ:     1.1
+\ РћРїРёСЃР°РЅРёРµ:   РђСЃСЃРµРјР±Р»РµСЂ РґР»СЏ РЅРЅРєСЂРѕРЅР°. Р’Р·СЏС‚ РёР· РґРёСЃС‚СЂРёР±СѓС‚РёРІР° СЃРїС„.
+\ РЎР»РѕРІР°:
 \ SEE some_word
 \ ' some_word REST
-\ DIS ( ADR -- ) Перейти в режим пошагового просмотра кода. Выход по q
-\ Остальные слова используются довольно редко.
+\ DIS ( ADR -- ) РџРµСЂРµР№С‚Рё РІ СЂРµР¶РёРј РїРѕС€Р°РіРѕРІРѕРіРѕ РїСЂРѕСЃРјРѕС‚СЂР° РєРѕРґР°. Р’С‹С…РѕРґ РїРѕ q
+\ РћСЃС‚Р°Р»СЊРЅС‹Рµ СЃР»РѕРІР° РёСЃРїРѕР»СЊР·СѓСЋС‚СЃСЏ РґРѕРІРѕР»СЊРЅРѕ СЂРµРґРєРѕ.
 
 \ ---------------------------------------------------------------------------------------------------------------------------
 WARNING @ WARNING OFF
@@ -1766,8 +1766,8 @@ IN-ASM
     0A6 '    WORD-STR-INST OPCODE CMPSW
   0400F '       BS-COMPILE OPCODE CMOVO
   0410F '       BS-COMPILE OPCODE CMOVNO
-  0420F '       BS-COMPILE OPCODE CMOVNAE     : CMOVB  CMOVNAE ;   : CMOVC  CMOVNAE ; 
-  0430F '       BS-COMPILE OPCODE CMOVNC      : CMOVAE CMOVNC  ;   : CMOVNB CMOVNC  ; 
+  0420F '       BS-COMPILE OPCODE CMOVNAE     : CMOVB  CMOVNAE ;   : CMOVC  CMOVNAE ;
+  0430F '       BS-COMPILE OPCODE CMOVNC      : CMOVAE CMOVNC  ;   : CMOVNB CMOVNC  ;
   0440F '       BS-COMPILE OPCODE CMOVE       : CMOVZ  CMOVE   ;
   0450F '       BS-COMPILE OPCODE CMOVNE      : CMOVNZ CMOVNE  ;
   0460F '       BS-COMPILE OPCODE CMOVNA      : CMOVBE CMOVNA  ;
@@ -1905,7 +1905,7 @@ IN-ASM
      72 '      JCC-COMPILE OPCODE JB     : JNAE   JB   ; : JC  JB   ;
      76 '      JCC-COMPILE OPCODE JBE    : JNA    JBE  ;
 
-\    0E3 '     JCXZ-COMPILE OPCODE JCXZ   : JECXZ  JCXZ ; \ это приводит к ошибке "A16:" в SEARCH !!!
+\    0E3 '     JCXZ-COMPILE OPCODE JCXZ   : JECXZ  JCXZ ; \ СЌС‚Рѕ РїСЂРёРІРѕРґРёС‚ Рє РѕС€РёР±РєРµ "A16:" РІ SEARCH !!!
     0E3 '     JCXZ-COMPILE OPCODE JCXZ
     0E3 '    JECXZ-COMPILE OPCODE JECXZ
 
@@ -1915,7 +1915,7 @@ IN-ASM
      7C '      JCC-COMPILE OPCODE JL     : JNGE   JL   ;
      7E '      JCC-COMPILE OPCODE JLE    : JNG    JLE  ;
       0 '      JMP-COMPILE OPCODE JMP
-     75 '      JCC-COMPILE OPCODE JNE    : JNZ JNE ; 
+     75 '      JCC-COMPILE OPCODE JNE    : JNZ JNE ;
      71 '      JCC-COMPILE OPCODE JNO
      7B '      JCC-COMPILE OPCODE JNP    : JPO JNP ;
      79 '      JCC-COMPILE OPCODE JNS

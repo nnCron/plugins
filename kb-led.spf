@@ -37,23 +37,23 @@ EXPORT
    4 CONSTANT Caps   \ KEYBOARD_CAPS_LOCK_ON
    2 CONSTANT Num    \ KEYBOARD_NUM_LOCK_ON
    1 CONSTANT Scroll \ KEYBOARD_SCROLL_LOCK_ON
-           
-  : LedOn ( Led --  )  \ Âêëþ÷èòü èíäèêàòîð
-    KbdPs2DeviceOpen DUP >R KbdPs2LedGetAll DROP OR 
-    R@ KbdPs2LedSetAll R> CloseHandle 
+
+  : LedOn ( Led --  )  \ Ð’ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ Ð¸Ð½Ð´Ð¸ÐºÐ°Ñ‚Ð¾Ñ€
+    KbdPs2DeviceOpen DUP >R KbdPs2LedGetAll DROP OR
+    R@ KbdPs2LedSetAll R> CloseHandle
     2DROP
   ;
 
-  : LedOff ( Led -- )  \ Âûêëþ÷èòü èíäèêàòîð
-    INVERT KbdPs2DeviceOpen DUP >R KbdPs2LedGetAll DROP AND 
-    R@ KbdPs2LedSetAll R> CloseHandle 
+  : LedOff ( Led -- )  \ Ð’Ñ‹ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ Ð¸Ð½Ð´Ð¸ÐºÐ°Ñ‚Ð¾Ñ€
+    INVERT KbdPs2DeviceOpen DUP >R KbdPs2LedGetAll DROP AND
+    R@ KbdPs2LedSetAll R> CloseHandle
     2DROP
   ;
-  
-  : LedOn? ( Led -- ? )  \ Âåðíóòü ñîñòîÿíèå èíäèêàòîðà
+
+  : LedOn? ( Led -- ? )  \ Ð’ÐµÑ€Ð½ÑƒÑ‚ÑŒ ÑÐ¾ÑÑ‚Ð¾ÑÐ½Ð¸Ðµ Ð¸Ð½Ð´Ð¸ÐºÐ°Ñ‚Ð¾Ñ€Ð°
     KbdPs2DeviceOpen DUP >R KbdPs2LedGetAll >R AND R> R> CloseHandle 2DROP 0<>
   ;
-  
+
   : LedInvert   ( Led -- )
     DUP LedOn?
       IF

@@ -1,17 +1,17 @@
-\ Файл:       registry.spf
-\ Автор:      VoidVolker
-\ Дата:       05/11/2011 21:01
-\ Версия:     1.1
-\ Описание:   Работа с реестром: чтение/запись, удаление значений/ключей.
+\ Р¤Р°Р№Р»:       registry.spf
+\ РђРІС‚РѕСЂ:      VoidVolker
+\ Р”Р°С‚Р°:       05/11/2011 21:01
+\ Р’РµСЂСЃРёСЏ:     1.1
+\ РћРїРёСЃР°РЅРёРµ:   Р Р°Р±РѕС‚Р° СЃ СЂРµРµСЃС‚СЂРѕРј: С‡С‚РµРЅРёРµ/Р·Р°РїРёСЃСЊ, СѓРґР°Р»РµРЅРёРµ Р·РЅР°С‡РµРЅРёР№/РєР»СЋС‡РµР№.
 
 MODULE: REGISTRY_MODULE
 
   \ ----------
-  \ Максимальный размер элементов реестра (Registry Element Size Limits)
-  \ Имя ключа         255 символов
-  \ Имя значения      16383 символа; Windows 2000:  260 ANSI символов или 16383 юникод-символов
-  \ Значение          Вся доступная память (последний формат); 1 МБ (стандартный формат)
-  \ Дерево            Максимум 512 уровней. За один апи-вызов можно сосздать не более 32-ух уронвей.
+  \ РњР°РєСЃРёРјР°Р»СЊРЅС‹Р№ СЂР°Р·РјРµСЂ СЌР»РµРјРµРЅС‚РѕРІ СЂРµРµСЃС‚СЂР° (Registry Element Size Limits)
+  \ РРјСЏ РєР»СЋС‡Р°         255 СЃРёРјРІРѕР»РѕРІ
+  \ РРјСЏ Р·РЅР°С‡РµРЅРёСЏ      16383 СЃРёРјРІРѕР»Р°; Windows 2000:  260 ANSI СЃРёРјРІРѕР»РѕРІ РёР»Рё 16383 СЋРЅРёРєРѕРґ-СЃРёРјРІРѕР»РѕРІ
+  \ Р—РЅР°С‡РµРЅРёРµ          Р’СЃСЏ РґРѕСЃС‚СѓРїРЅР°СЏ РїР°РјСЏС‚СЊ (РїРѕСЃР»РµРґРЅРёР№ С„РѕСЂРјР°С‚); 1 РњР‘ (СЃС‚Р°РЅРґР°СЂС‚РЅС‹Р№ С„РѕСЂРјР°С‚)
+  \ Р”РµСЂРµРІРѕ            РњР°РєСЃРёРјСѓРј 512 СѓСЂРѕРІРЅРµР№. Р—Р° РѕРґРёРЅ Р°РїРё-РІС‹Р·РѕРІ РјРѕР¶РЅРѕ СЃРѕСЃР·РґР°С‚СЊ РЅРµ Р±РѕР»РµРµ 32-СѓС… СѓСЂРѕРЅРІРµР№.
 
   0x80000000 CONSTANT HKEY_CLASSES_ROOT           HKEY_CLASSES_ROOT        CONSTANT HKCR
   0x80000001 CONSTANT HKEY_CURRENT_USER           HKEY_CURRENT_USER        CONSTANT HKCU
@@ -58,18 +58,18 @@ MODULE: REGISTRY_MODULE
   6 CONSTANT REG_LINK                 REG_LINK                CONSTANT RK-LINK
   7 CONSTANT REG_MULTI_SZ             REG_MULTI_SZ            CONSTANT RK-MSZ
 
-  \ 0xF003F CONSTANT KEY_ALL_ACCESS 
-  \ 0x0020 CONSTANT KEY_CREATE_LINK 
-  \ 0x0004 CONSTANT KEY_CREATE_SUB_KEY 
-  \ 0x0008 CONSTANT KEY_ENUMERATE_SUB_KEYS 
-  \ 0x20019 CONSTANT KEY_EXECUTE    
-  \ 0x0010 CONSTANT KEY_NOTIFY    
-  \ 0x0001 CONSTANT KEY_QUERY_VALUE    
-  \ 0x20019 CONSTANT KEY_READ    
-  \ 0x0002 CONSTANT KEY_SET_VALUE    
+  \ 0xF003F CONSTANT KEY_ALL_ACCESS
+  \ 0x0020 CONSTANT KEY_CREATE_LINK
+  \ 0x0004 CONSTANT KEY_CREATE_SUB_KEY
+  \ 0x0008 CONSTANT KEY_ENUMERATE_SUB_KEYS
+  \ 0x20019 CONSTANT KEY_EXECUTE
+  \ 0x0010 CONSTANT KEY_NOTIFY
+  \ 0x0001 CONSTANT KEY_QUERY_VALUE
+  \ 0x20019 CONSTANT KEY_READ
+  \ 0x0002 CONSTANT KEY_SET_VALUE
   0x0200 CONSTANT KEY_WOW64_32KEY
   0x0100 CONSTANT KEY_WOW64_64KEY
-  \ 0x20006 CONSTANT KEY_WRITE 
+  \ 0x20006 CONSTANT KEY_WRITE
 
   KEY_WOW64_32KEY VALUE WOW64_KEY
 
@@ -86,17 +86,17 @@ MODULE: REGISTRY_MODULE
   \ WINAPI: RegSetValueExA Advapi32.dll
 
   USER-VALUE RK-FOR-PAD
-  
+
 EXPORT
 
   : WOW64_32KEY   KEY_WOW64_32KEY TO WOW64_KEY  ;
   : WOW64_64KEY   KEY_WOW64_64KEY TO WOW64_KEY  ;
-  USER-VALUE RK-ERROR  \ Результат работы апи с реестром
+  USER-VALUE RK-ERROR  \ Р РµР·СѓР»СЊС‚Р°С‚ СЂР°Р±РѕС‚С‹ Р°РїРё СЃ СЂРµРµСЃС‚СЂРѕРј
   10240 CONSTANT /RK-PAD
-  USER-CREATE RK-PAD /RK-PAD CELL+ ALLOT   \ Буфер для данных - значений параметров и прочее
+  USER-CREATE RK-PAD /RK-PAD CELL+ ALLOT   \ Р‘СѓС„РµСЂ РґР»СЏ РґР°РЅРЅС‹С… - Р·РЅР°С‡РµРЅРёР№ РїР°СЂР°РјРµС‚СЂРѕРІ Рё РїСЂРѕС‡РµРµ
   USER RK-PAD#
 
-  : RK-CLOSE   \ ( hKey -- ) \ Закрыть ключ реестра, идентифицируемый хэндлом hKey
+  : RK-CLOSE   \ ( hKey -- ) \ Р—Р°РєСЂС‹С‚СЊ РєР»СЋС‡ СЂРµРµСЃС‚СЂР°, РёРґРµРЅС‚РёС„РёС†РёСЂСѓРµРјС‹Р№ С…СЌРЅРґР»РѕРј hKey
     RegCloseKey TO RK-ERROR ;
 
   : RK-CONNECT   \ ( hkey az_computername -- hkey1|0 ) \ az = \\computername
@@ -104,9 +104,9 @@ EXPORT
   ;
 
   : RK-CREATE   \ ( az_subkey hkey -- hkey1|0 )
-  \ Приложение не может создавать ключ под HKEY_USERS или HKEY_LOCAL_MACHINE.
+  \ РџСЂРёР»РѕР¶РµРЅРёРµ РЅРµ РјРѕР¶РµС‚ СЃРѕР·РґР°РІР°С‚СЊ РєР»СЋС‡ РїРѕРґ HKEY_USERS РёР»Рё HKEY_LOCAL_MACHINE.
     2>R 0 SP@
-    0 SWAP 0 0xF003F 0 0 0 2R> 
+    0 SWAP 0 0xF003F 0 0 0 2R>
     RegCreateKeyExA TO RK-ERROR
   ;
 
@@ -130,7 +130,7 @@ EXPORT
 
   : FOUND-KEY  \ ( -- a u )
     RK-FOR-PAD XCOUNT
-    \ 2DUP + OFF  \ Записываем в конец строки 4 нуля на всякий случай
+    \ 2DUP + OFF  \ Р—Р°РїРёСЃС‹РІР°РµРј РІ РєРѕРЅРµС† СЃС‚СЂРѕРєРё 4 РЅСѓР»СЏ РЅР° РІСЃСЏРєРёР№ СЃР»СѓС‡Р°Р№
   ;
 
   : FOUND-KEYI   \ ( -- i )
@@ -141,24 +141,24 @@ DEFINITIONS
 
   : (FOR-SUBKEYS)   \ ( hkey xt -- )
     { hkey xt -- }
-    RK-FOR-PAD >R \ Сохраняем адрес текущего буфера - для вложенных случаев
-    
-    /RK-PAD 2 CELLS + ALLOCATE THROW \ Выделяем память для параметров: индекс - ячейка -1; длина - ячейка 0; буфер под строку - ячейка +1, /RK-PAD
-    DUP >R                  \ Сохраняем на стеке возвратов адрес буфера под индекс
-    CELL+ TO RK-FOR-PAD     \ Сохраняем адрес буфера
-    
+    RK-FOR-PAD >R \ РЎРѕС…СЂР°РЅСЏРµРј Р°РґСЂРµСЃ С‚РµРєСѓС‰РµРіРѕ Р±СѓС„РµСЂР° - РґР»СЏ РІР»РѕР¶РµРЅРЅС‹С… СЃР»СѓС‡Р°РµРІ
+
+    /RK-PAD 2 CELLS + ALLOCATE THROW \ Р’С‹РґРµР»СЏРµРј РїР°РјСЏС‚СЊ РґР»СЏ РїР°СЂР°РјРµС‚СЂРѕРІ: РёРЅРґРµРєСЃ - СЏС‡РµР№РєР° -1; РґР»РёРЅР° - СЏС‡РµР№РєР° 0; Р±СѓС„РµСЂ РїРѕРґ СЃС‚СЂРѕРєСѓ - СЏС‡РµР№РєР° +1, /RK-PAD
+    DUP >R                  \ РЎРѕС…СЂР°РЅСЏРµРј РЅР° СЃС‚РµРєРµ РІРѕР·РІСЂР°С‚РѕРІ Р°РґСЂРµСЃ Р±СѓС„РµСЂР° РїРѕРґ РёРЅРґРµРєСЃ
+    CELL+ TO RK-FOR-PAD     \ РЎРѕС…СЂР°РЅСЏРµРј Р°РґСЂРµСЃ Р±СѓС„РµСЂР°
+
     BEGIN
-      /RK-PAD RK-FOR-PAD !    \ Записываем в буфер максимальную длину строки; сюда же апи запишет длину результирующей строки
-      0 0 0 0 RK-FOR-PAD DUP CELL+ R@ @ hkey    \ Кладем все параметры необходимые для вызова апи
-      RegEnumKeyExA TO RK-ERROR                 \ Вызываем апи
-    \ RK-ERROR ERROR_NO_MORE_ITEMS <> WHILE       \ До тех пор, пока не закончатся все элементы
-    RK-ERROR 0= WHILE       \ До первой ошибки
-      xt EXECUTE                                \ Выполняем код
-      R@ 1+!                                    \ Увеличиваем счетик
+      /RK-PAD RK-FOR-PAD !    \ Р—Р°РїРёСЃС‹РІР°РµРј РІ Р±СѓС„РµСЂ РјР°РєСЃРёРјР°Р»СЊРЅСѓСЋ РґР»РёРЅСѓ СЃС‚СЂРѕРєРё; СЃСЋРґР° Р¶Рµ Р°РїРё Р·Р°РїРёС€РµС‚ РґР»РёРЅСѓ СЂРµР·СѓР»СЊС‚РёСЂСѓСЋС‰РµР№ СЃС‚СЂРѕРєРё
+      0 0 0 0 RK-FOR-PAD DUP CELL+ R@ @ hkey    \ РљР»Р°РґРµРј РІСЃРµ РїР°СЂР°РјРµС‚СЂС‹ РЅРµРѕР±С…РѕРґРёРјС‹Рµ РґР»СЏ РІС‹Р·РѕРІР° Р°РїРё
+      RegEnumKeyExA TO RK-ERROR                 \ Р’С‹Р·С‹РІР°РµРј Р°РїРё
+    \ RK-ERROR ERROR_NO_MORE_ITEMS <> WHILE       \ Р”Рѕ С‚РµС… РїРѕСЂ, РїРѕРєР° РЅРµ Р·Р°РєРѕРЅС‡Р°С‚СЃСЏ РІСЃРµ СЌР»РµРјРµРЅС‚С‹
+    RK-ERROR 0= WHILE       \ Р”Рѕ РїРµСЂРІРѕР№ РѕС€РёР±РєРё
+      xt EXECUTE                                \ Р’С‹РїРѕР»РЅСЏРµРј РєРѕРґ
+      R@ 1+!                                    \ РЈРІРµР»РёС‡РёРІР°РµРј СЃС‡РµС‚РёРє
     REPEAT
-    
+
     R> FREE THROW
-    R> TO RK-FOR-PAD 
+    R> TO RK-FOR-PAD
   ;
 
 EXPORT
@@ -173,16 +173,16 @@ EXPORT
   ; IMMEDIATE
 
 
-  : FOUND-VALNAME  \ ( -- a u ) \ Имя найденного значения
+  : FOUND-VALNAME  \ ( -- a u ) \ РРјСЏ РЅР°Р№РґРµРЅРЅРѕРіРѕ Р·РЅР°С‡РµРЅРёСЏ
     RK-FOR-PAD XCOUNT
-    \ 2DUP + OFF  \ Записываем в конец строки 4 нуля на всякий случай
+    \ 2DUP + OFF  \ Р—Р°РїРёСЃС‹РІР°РµРј РІ РєРѕРЅРµС† СЃС‚СЂРѕРєРё 4 РЅСѓР»СЏ РЅР° РІСЃСЏРєРёР№ СЃР»СѓС‡Р°Р№
   ;
 
-  : FOUND-VALINDEX   \ ( -- i ) \ Индекс найденного значения
+  : FOUND-VALINDEX   \ ( -- i ) \ РРЅРґРµРєСЃ РЅР°Р№РґРµРЅРЅРѕРіРѕ Р·РЅР°С‡РµРЅРёСЏ
     RK-FOR-PAD CELL- @
   ;
 
-  : FOUND-VALTYPE   \ ( -- type ) \ Тип найденного значения
+  : FOUND-VALTYPE   \ ( -- type ) \ РўРёРї РЅР°Р№РґРµРЅРЅРѕРіРѕ Р·РЅР°С‡РµРЅРёСЏ
     RK-FOR-PAD 2 CELLS - @
   ;
 
@@ -190,26 +190,26 @@ DEFINITIONS
 
   : (FOR-VALUES)   \ ( hkey xt -- )
     { hkey xt -- }
-    RK-FOR-PAD >R \ Сохраняем адрес текущего буфера - для вложенных случаев
-    
-    /RK-PAD 3 CELLS + ALLOCATE THROW \ Выделяем память для параметров:
-    \ тип значеня - ячейка -2; индекс - ячейка -1; длина - ячейка 0; буфер под строку - ячейка +1, /RK-PAD
+    RK-FOR-PAD >R \ РЎРѕС…СЂР°РЅСЏРµРј Р°РґСЂРµСЃ С‚РµРєСѓС‰РµРіРѕ Р±СѓС„РµСЂР° - РґР»СЏ РІР»РѕР¶РµРЅРЅС‹С… СЃР»СѓС‡Р°РµРІ
+
+    /RK-PAD 3 CELLS + ALLOCATE THROW \ Р’С‹РґРµР»СЏРµРј РїР°РјСЏС‚СЊ РґР»СЏ РїР°СЂР°РјРµС‚СЂРѕРІ:
+    \ С‚РёРї Р·РЅР°С‡РµРЅСЏ - СЏС‡РµР№РєР° -2; РёРЅРґРµРєСЃ - СЏС‡РµР№РєР° -1; РґР»РёРЅР° - СЏС‡РµР№РєР° 0; Р±СѓС„РµСЂ РїРѕРґ СЃС‚СЂРѕРєСѓ - СЏС‡РµР№РєР° +1, /RK-PAD
     CELL+
-    DUP >R                  \ Сохраняем на стеке возвратов адрес буфера под индекс
-    CELL+ TO RK-FOR-PAD     \ Сохраняем адрес буфера
-    
+    DUP >R                  \ РЎРѕС…СЂР°РЅСЏРµРј РЅР° СЃС‚РµРєРµ РІРѕР·РІСЂР°С‚РѕРІ Р°РґСЂРµСЃ Р±СѓС„РµСЂР° РїРѕРґ РёРЅРґРµРєСЃ
+    CELL+ TO RK-FOR-PAD     \ РЎРѕС…СЂР°РЅСЏРµРј Р°РґСЂРµСЃ Р±СѓС„РµСЂР°
+
     BEGIN
-      /RK-PAD RK-FOR-PAD !    \ Записываем в буфер максимальную длину строки; сюда же апи запишет длину результирующей строки
-      0 0 R@ CELL- 0 RK-FOR-PAD DUP CELL+ R@ @ hkey    \ Кладем все параметры необходимые для вызова апи
-      RegEnumValueA TO RK-ERROR                 \ Вызываем апи
-    \ RK-ERROR ERROR_NO_MORE_ITEMS <> WHILE       \ До тех пор, пока не закончатся все элементы
-    RK-ERROR 0= WHILE       \ До первой ошибки
-      xt EXECUTE                                \ Выполняем код
-      R@ 1+!                                    \ Увеличиваем счетик
+      /RK-PAD RK-FOR-PAD !    \ Р—Р°РїРёСЃС‹РІР°РµРј РІ Р±СѓС„РµСЂ РјР°РєСЃРёРјР°Р»СЊРЅСѓСЋ РґР»РёРЅСѓ СЃС‚СЂРѕРєРё; СЃСЋРґР° Р¶Рµ Р°РїРё Р·Р°РїРёС€РµС‚ РґР»РёРЅСѓ СЂРµР·СѓР»СЊС‚РёСЂСѓСЋС‰РµР№ СЃС‚СЂРѕРєРё
+      0 0 R@ CELL- 0 RK-FOR-PAD DUP CELL+ R@ @ hkey    \ РљР»Р°РґРµРј РІСЃРµ РїР°СЂР°РјРµС‚СЂС‹ РЅРµРѕР±С…РѕРґРёРјС‹Рµ РґР»СЏ РІС‹Р·РѕРІР° Р°РїРё
+      RegEnumValueA TO RK-ERROR                 \ Р’С‹Р·С‹РІР°РµРј Р°РїРё
+    \ RK-ERROR ERROR_NO_MORE_ITEMS <> WHILE       \ Р”Рѕ С‚РµС… РїРѕСЂ, РїРѕРєР° РЅРµ Р·Р°РєРѕРЅС‡Р°С‚СЃСЏ РІСЃРµ СЌР»РµРјРµРЅС‚С‹
+    RK-ERROR 0= WHILE       \ Р”Рѕ РїРµСЂРІРѕР№ РѕС€РёР±РєРё
+      xt EXECUTE                                \ Р’С‹РїРѕР»РЅСЏРµРј РєРѕРґ
+      R@ 1+!                                    \ РЈРІРµР»РёС‡РёРІР°РµРј СЃС‡РµС‚РёРє
     REPEAT
-    
-    R> CELL- FREE THROW       \ Освобождаем память
-    R> TO RK-FOR-PAD    \ Восстанавливаем исходное значение RK-FOR-PAD
+
+    R> CELL- FREE THROW       \ РћСЃРІРѕР±РѕР¶РґР°РµРј РїР°РјСЏС‚СЊ
+    R> TO RK-FOR-PAD    \ Р’РѕСЃСЃС‚Р°РЅР°РІР»РёРІР°РµРј РёСЃС…РѕРґРЅРѕРµ Р·РЅР°С‡РµРЅРёРµ RK-FOR-PAD
   ;
 
 EXPORT
@@ -224,14 +224,14 @@ EXPORT
   ; IMMEDIATE
 
   : RSK-OPEN   \ ( az_keyname hkey -- )
-    2>R 0 
+    2>R 0
     SP@ 0xF003F 0 2R> RegOpenKeyExA TO RK-ERROR
   ;
 
-  : RK-VALUE@   \ ( az_valuename hkey -- a uz type ) 
-  \ Пометка: для SZ, MULTI_SZ, EXPAND_SZ u включает в себя еще и ноль в конце, поэтому и обозначается как uz
+  : RK-VALUE@   \ ( az_valuename hkey -- a uz type )
+  \ РџРѕРјРµС‚РєР°: РґР»СЏ SZ, MULTI_SZ, EXPAND_SZ u РІРєР»СЋС‡Р°РµС‚ РІ СЃРµР±СЏ РµС‰Рµ Рё РЅРѕР»СЊ РІ РєРѕРЅС†Рµ, РїРѕСЌС‚РѕРјСѓ Рё РѕР±РѕР·РЅР°С‡Р°РµС‚СЃСЏ РєР°Рє uz
     2>R
-    RK-PAD /RK-PAD SP@ >R 0         \ a u type R: 'u 
+    RK-PAD /RK-PAD SP@ >R 0         \ a u type R: 'u
     SP@ R>  RK-PAD  ROT  0  2R>     \ a u type  'u a 'type 0 az_valname hkey
     RegQueryValueExA TO RK-ERROR
   ;
@@ -242,15 +242,15 @@ EXPORT
   ;
 
   : RK-TVALUE!    \ ( a uz a_name u_name hkey type -- )
-    2>R DROP 2R> -ROT   \ a uz type az_name hkey 
+    2>R DROP 2R> -ROT   \ a uz type az_name hkey
   ;
 
   : RK-NONE!   \ ( a uz a_name u_name hkey -- )
     RK-NONE RK-TVALUE! ;
   : RK-SZ!     \ ( a u a_name u_name hkey -- )
-    SP@ 3 CELLS + 1+!  \ Увеличиваем длину строки на один(ноль в конце) - требование винапи
+    SP@ 3 CELLS + 1+!  \ РЈРІРµР»РёС‡РёРІР°РµРј РґР»РёРЅСѓ СЃС‚СЂРѕРєРё РЅР° РѕРґРёРЅ(РЅРѕР»СЊ РІ РєРѕРЅС†Рµ) - С‚СЂРµР±РѕРІР°РЅРёРµ РІРёРЅР°РїРё
     RK-SZ RK-TVALUE! ;
-  \ Может сделать конвертер a_u <-> esz,msz,a_uz ...
+  \ РњРѕР¶РµС‚ СЃРґРµР»Р°С‚СЊ РєРѕРЅРІРµСЂС‚РµСЂ a_u <-> esz,msz,a_uz ...
   : RK-ESZ!    \ ( a uz a_name u_name hkey -- )
     RK-ESZ RK-TVALUE! ;
   : RK-MSZ!    \ ( a uz a_name u_name hkey -- )

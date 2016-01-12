@@ -1,8 +1,8 @@
-\ Файл:       read-by-line.spf
-\ Автор:      VoidVolker
-\ Дата:       14:25 11/08/15
-\ Версия:     2.0
-\ Описание:   Построчное чтение и обработка файлов и строк. С чтением файла как с диска так и с предзагрузкой в ОЗУ.
+\ Р¤Р°Р№Р»:       read-by-line.spf
+\ РђРІС‚РѕСЂ:      VoidVolker
+\ Р”Р°С‚Р°:       14:25 11/08/15
+\ Р’РµСЂСЃРёСЏ:     2.0
+\ РћРїРёСЃР°РЅРёРµ:   РџРѕСЃС‚СЂРѕС‡РЅРѕРµ С‡С‚РµРЅРёРµ Рё РѕР±СЂР°Р±РѕС‚РєР° С„Р°Р№Р»РѕРІ Рё СЃС‚СЂРѕРє. РЎ С‡С‚РµРЅРёРµРј С„Р°Р№Р»Р° РєР°Рє СЃ РґРёСЃРєР° С‚Р°Рє Рё СЃ РїСЂРµРґР·Р°РіСЂСѓР·РєРѕР№ РІ РћР—РЈ.
 
 USER-VALUE LINE-NUMBER
 
@@ -12,20 +12,20 @@ MODULE: READ-BY-LINE-MODULE
     USER-VALUE Lc
     USER-VALUE Lu
     USER-CREATE rblStartOffset 2 CELLS USER-ALLOT
-    
+
     : (READ-BY-LINE) { xt \ Lf -- }  ( a u xt -- )
-        fEND >R     \ Сохраняем переменные (для вложенных случаев)
+        fEND >R     \ РЎРѕС…СЂР°РЅСЏРµРј РїРµСЂРµРјРµРЅРЅС‹Рµ (РґР»СЏ РІР»РѕР¶РµРЅРЅС‹С… СЃР»СѓС‡Р°РµРІ)
         Lc >R
         Lu >R
         LINE-NUMBER >R
-        
+
         R/O OPEN-FILE-SHARED THROW TO Lf
-        
+
         rblStartOffset 2@ D0<> IF
-            Lf FILE-SIZE THROW 
+            Lf FILE-SIZE THROW
             rblStartOffset 2@
             2OVER
-            D> IF 
+            D> IF
                 rblStartOffset 2@ D0< IF
                     D+
                 ELSE
@@ -34,16 +34,16 @@ MODULE: READ-BY-LINE-MODULE
                 Lf REPOSITION-FILE THROW
             ELSE
                 2DROP
-            THEN            
-        THEN 
-        
+            THEN
+        THEN
+
         -1 TO fEND
         1 TO LINE-NUMBER
-        10248   \ максимальная длина строки (в символах)
+        10248   \ РјР°РєСЃРёРјР°Р»СЊРЅР°СЏ РґР»РёРЅР° СЃС‚СЂРѕРєРё (РІ СЃРёРјРІРѕР»Р°С…)
         ALLOCATE THROW TO Lc
-        
+
         BEGIN Lc 10238 Lf READ-LINE THROW
-            fEND AND WHILE  \ Выход по команде
+            fEND AND WHILE  \ Р’С‹С…РѕРґ РїРѕ РєРѕРјР°РЅРґРµ
             TO Lu
             0 Lc Lu + C!
             xt EXECUTE
@@ -56,9 +56,9 @@ MODULE: READ-BY-LINE-MODULE
         R> TO LINE-NUMBER
         R> TO Lu
         R> TO Lc
-        R> TO fEND  \ Восстанавливаем переменные
+        R> TO fEND  \ Р’РѕСЃСЃС‚Р°РЅР°РІР»РёРІР°РµРј РїРµСЂРµРјРµРЅРЅС‹Рµ
     ;
-    
+
 
     USER-VALUE leA
     USER-VALUE leU
@@ -68,12 +68,12 @@ MODULE: READ-BY-LINE-MODULE
     CREATE leZ 0 , 0 ,
 
     : (FOR-FILE-LINES) \ ( a u xt -- )
-        fEND >R     \ Сохраняем переменные (для вложенных случаев)
+        fEND >R     \ РЎРѕС…СЂР°РЅСЏРµРј РїРµСЂРµРјРµРЅРЅС‹Рµ (РґР»СЏ РІР»РѕР¶РµРЅРЅС‹С… СЃР»СѓС‡Р°РµРІ)
         Lc >R
         Lu >R
         LINE-NUMBER >R
 
-        leA IF ELSE \ Инициализируем делитель строк
+        leA IF ELSE \ РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј РґРµР»РёС‚РµР»СЊ СЃС‚СЂРѕРє
             CRLF TO leU TO leA
         THEN
 
@@ -86,9 +86,9 @@ MODULE: READ-BY-LINE-MODULE
 
         FILE OVER TO Lc
 
-        Lc >R   \ Сохраням начальный адрес файла на стеке возвратов
+        Lc >R   \ РЎРѕС…СЂР°РЅСЏРј РЅР°С‡Р°Р»СЊРЅС‹Р№ Р°РґСЂРµСЃ С„Р°Р№Р»Р° РЅР° СЃС‚РµРєРµ РІРѕР·РІСЂР°С‚РѕРІ
 
-        ROT >R  \ Сохраняем токен
+        ROT >R  \ РЎРѕС…СЂР°РЅСЏРµРј С‚РѕРєРµРЅ
 
         \ a u
         BEGIN
@@ -133,32 +133,32 @@ MODULE: READ-BY-LINE-MODULE
         REPEAT
         2DROP 2DROP
 
-        RDROP   \ Удаляем токен
+        RDROP   \ РЈРґР°Р»СЏРµРј С‚РѕРєРµРЅ
 
-        R> FREE THROW   \ Освобождаем память, занятую файлом
+        R> FREE THROW   \ РћСЃРІРѕР±РѕР¶РґР°РµРј РїР°РјСЏС‚СЊ, Р·Р°РЅСЏС‚СѓСЋ С„Р°Р№Р»РѕРј
 
         R> TO leU
         R> TO leA
         R> TO LINE-NUMBER
         R> TO Lu
         R> TO Lc
-        R> TO fEND  \ Восстанавливаем переменные
+        R> TO fEND  \ Р’РѕСЃСЃС‚Р°РЅР°РІР»РёРІР°РµРј РїРµСЂРµРјРµРЅРЅС‹Рµ
     ;
 
     : (FOR-LINES) \ ( a u xt -- )
-        fEND >R     \ Сохраняем переменные (для вложенных случаев)
+        fEND >R     \ РЎРѕС…СЂР°РЅСЏРµРј РїРµСЂРµРјРµРЅРЅС‹Рµ (РґР»СЏ РІР»РѕР¶РµРЅРЅС‹С… СЃР»СѓС‡Р°РµРІ)
         Lc >R
         Lu >R
         LINE-NUMBER >R
 
-        leA IF ELSE \ Инициализируем делитель строк
+        leA IF ELSE \ РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј РґРµР»РёС‚РµР»СЊ СЃС‚СЂРѕРє
             CRLF TO leU TO leA
         THEN
 
         leA >R
         leU >R
 
-        >R \ Сохраняем токен
+        >R \ РЎРѕС…СЂР°РЅСЏРµРј С‚РѕРєРµРЅ
         -1 TO fEND
         1 TO LINE-NUMBER
 
@@ -207,66 +207,66 @@ MODULE: READ-BY-LINE-MODULE
         REPEAT
         2DROP 2DROP
 
-        RDROP   \ Удаляем токен
+        RDROP   \ РЈРґР°Р»СЏРµРј С‚РѕРєРµРЅ
 
         R> TO leU
         R> TO leA
         R> TO LINE-NUMBER
         R> TO Lu
         R> TO Lc
-        R> TO fEND  \ Восстанавливаем переменные
+        R> TO fEND  \ Р’РѕСЃСЃС‚Р°РЅР°РІР»РёРІР°РµРј РїРµСЂРµРјРµРЅРЅС‹Рµ
     ;
 
 EXPORT
 
-    : LE-WIN   \ ( -- ) \ Установить разделителем переводы строк Windows формата 0x0D0A
+    : LE-WIN   \ ( -- ) \ РЈСЃС‚Р°РЅРѕРІРёС‚СЊ СЂР°Р·РґРµР»РёС‚РµР»РµРј РїРµСЂРµРІРѕРґС‹ СЃС‚СЂРѕРє Windows С„РѕСЂРјР°С‚Р° 0x0D0A
         CRLF TO leU TO leA
     ;
 
-    : LE-UNIX   \ ( -- ) \ Установить разделителем переводы строк Unix формата 0x0A
+    : LE-UNIX   \ ( -- ) \ РЈСЃС‚Р°РЅРѕРІРёС‚СЊ СЂР°Р·РґРµР»РёС‚РµР»РµРј РїРµСЂРµРІРѕРґС‹ СЃС‚СЂРѕРє Unix С„РѕСЂРјР°С‚Р° 0x0A
         leUnix TO leA
         1 TO leU
     ;
 
-    : LE-OSX   \ ( -- ) \ Установить разделителем переводы строк OSX формата 0x0D
+    : LE-OSX   \ ( -- ) \ РЈСЃС‚Р°РЅРѕРІРёС‚СЊ СЂР°Р·РґРµР»РёС‚РµР»РµРј РїРµСЂРµРІРѕРґС‹ СЃС‚СЂРѕРє OSX С„РѕСЂРјР°С‚Р° 0x0D
         leOSX TO leA
         1 TO leU
     ;
 
-    : LE-Z   \ ( -- ) \ Установить разделителем строк ноль
+    : LE-Z   \ ( -- ) \ РЈСЃС‚Р°РЅРѕРІРёС‚СЊ СЂР°Р·РґРµР»РёС‚РµР»РµРј СЃС‚СЂРѕРє РЅРѕР»СЊ
         leZ TO leA
-        1 TO leU 
+        1 TO leU
     ;
-    
-    : LE-SET   \ ( a u -- ) \ Установить собственный делитель строк
+
+    : LE-SET   \ ( a u -- ) \ РЈСЃС‚Р°РЅРѕРІРёС‚СЊ СЃРѕР±СЃС‚РІРµРЅРЅС‹Р№ РґРµР»РёС‚РµР»СЊ СЃС‚СЂРѕРє
         TO leU TO leA
     ;
 
-    : LE-GET   \ ( -- a u ) \ Получить текущий делитель строк
+    : LE-GET   \ ( -- a u ) \ РџРѕР»СѓС‡РёС‚СЊ С‚РµРєСѓС‰РёР№ РґРµР»РёС‚РµР»СЊ СЃС‚СЂРѕРє
         leA leU
     ;
 
-    : ?RBL-EXIT   \ ( ? -- ) \ Условный выход из цикла
+    : ?RBL-EXIT   \ ( ? -- ) \ РЈСЃР»РѕРІРЅС‹Р№ РІС‹С…РѕРґ РёР· С†РёРєР»Р°
        NOT TO fEND
     ;
 
-    : RBL-EXIT   \ ( -- ) \ Выйти из цикла
+    : RBL-EXIT   \ ( -- ) \ Р’С‹Р№С‚Рё РёР· С†РёРєР»Р°
        0 TO fEND
     ;
 
-    : ?LINE-EXIT   \ ( ? -- ) \ Условный выход из цикла
+    : ?LINE-EXIT   \ ( ? -- ) \ РЈСЃР»РѕРІРЅС‹Р№ РІС‹С…РѕРґ РёР· С†РёРєР»Р°
        NOT TO fEND
     ;
 
-    : LINE-EXIT   \ ( -- ) \ Выйти из цикла
+    : LINE-EXIT   \ ( -- ) \ Р’С‹Р№С‚Рё РёР· С†РёРєР»Р°
        0 TO fEND
     ;
 
-    : FOUND-LINE   \ ( -- a u ) \ Найденная строка
+    : FOUND-LINE   \ ( -- a u ) \ РќР°Р№РґРµРЅРЅР°СЏ СЃС‚СЂРѕРєР°
        Lc Lu
     ;
 
-    : READ-BY-LINE \ compile: ( -- ) \ Построчное чтение файла с диска
+    : READ-BY-LINE \ compile: ( -- ) \ РџРѕСЃС‚СЂРѕС‡РЅРѕРµ С‡С‚РµРЅРёРµ С„Р°Р№Р»Р° СЃ РґРёСЃРєР°
                 \  execute: ( a u --)
         POSTPONE [NONAME
     ; IMMEDIATE
@@ -279,7 +279,7 @@ EXPORT
     : READ-BY-LINE: eval-string,  POSTPONE READ-BY-LINE ; IMMEDIATE
 
 
-    : FOR-FILE-LINES \ compile: ( -- ) \ Построчная обработка файла с загрузкой файла в память и последующим освобождением памяти
+    : FOR-FILE-LINES \ compile: ( -- ) \ РџРѕСЃС‚СЂРѕС‡РЅР°СЏ РѕР±СЂР°Р±РѕС‚РєР° С„Р°Р№Р»Р° СЃ Р·Р°РіСЂСѓР·РєРѕР№ С„Р°Р№Р»Р° РІ РїР°РјСЏС‚СЊ Рё РїРѕСЃР»РµРґСѓСЋС‰РёРј РѕСЃРІРѕР±РѕР¶РґРµРЅРёРµРј РїР°РјСЏС‚Рё
                 \  execute: ( a u --)
         POSTPONE [NONAME
     ; IMMEDIATE
@@ -292,7 +292,7 @@ EXPORT
     : FOR-FILE-LINES: eval-string,  POSTPONE FOR-FILE-LINES ; IMMEDIATE
 
 
-    : FOR-LINES \ compile: ( -- ) \ Построчная обработка строки
+    : FOR-LINES \ compile: ( -- ) \ РџРѕСЃС‚СЂРѕС‡РЅР°СЏ РѕР±СЂР°Р±РѕС‚РєР° СЃС‚СЂРѕРєРё
                 \  execute: ( a u --)
         POSTPONE [NONAME
     ; IMMEDIATE

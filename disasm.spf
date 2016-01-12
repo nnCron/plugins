@@ -1,15 +1,15 @@
-\ Файл:       disasm.spf
-\ Автор:      VoidVolker
-\ Дата:       05/11/2012 11:57
-\ Версия:     2.1
-\ Описание:   Дизасемблер для ннкрона. Взят из дистрибутива спф. Добавлена поддержка плагина strings.spf
-\ * Требуется подключенный плагин extwords.spf
-\ Для дизасмблирования строк из плагина strings.spf последний надо подключать до дизасемблера
-\ Слова:
+\ Р¤Р°Р№Р»:       disasm.spf
+\ РђРІС‚РѕСЂ:      VoidVolker
+\ Р”Р°С‚Р°:       05/11/2012 11:57
+\ Р’РµСЂСЃРёСЏ:     2.1
+\ РћРїРёСЃР°РЅРёРµ:   Р”РёР·Р°СЃРµРјР±Р»РµСЂ РґР»СЏ РЅРЅРєСЂРѕРЅР°. Р’Р·СЏС‚ РёР· РґРёСЃС‚СЂРёР±СѓС‚РёРІР° СЃРїС„. Р”РѕР±Р°РІР»РµРЅР° РїРѕРґРґРµСЂР¶РєР° РїР»Р°РіРёРЅР° strings.spf
+\ * РўСЂРµР±СѓРµС‚СЃСЏ РїРѕРґРєР»СЋС‡РµРЅРЅС‹Р№ РїР»Р°РіРёРЅ extwords.spf
+\ Р”Р»СЏ РґРёР·Р°СЃРјР±Р»РёСЂРѕРІР°РЅРёСЏ СЃС‚СЂРѕРє РёР· РїР»Р°РіРёРЅР° strings.spf РїРѕСЃР»РµРґРЅРёР№ РЅР°РґРѕ РїРѕРґРєР»СЋС‡Р°С‚СЊ РґРѕ РґРёР·Р°СЃРµРјР±Р»РµСЂР°
+\ РЎР»РѕРІР°:
 \ SEE some_word
 \ ' some_word REST
-\ DIS ( ADR -- ) Перейти в режим пошагового просмотра кода. Выход по q
-\ Остальные слова используются довольно редко.
+\ DIS ( ADR -- ) РџРµСЂРµР№С‚Рё РІ СЂРµР¶РёРј РїРѕС€Р°РіРѕРІРѕРіРѕ РїСЂРѕСЃРјРѕС‚СЂР° РєРѕРґР°. Р’С‹С…РѕРґ РїРѕ q
+\ РћСЃС‚Р°Р»СЊРЅС‹Рµ СЃР»РѕРІР° РёСЃРїРѕР»СЊР·СѓСЋС‚СЃСЏ РґРѕРІРѕР»СЊРЅРѕ СЂРµРґРєРѕ.
 
 \ ---------------------------------------------------------------------------------------------------------------------------
 \ 80386 DISASSEMBLER
@@ -25,7 +25,7 @@
 \ 15-11-2000 Fixed MV2 (Yakimov)
 \ 25-12-2000 Added float literals recognition (Yakimov)
 \ 26-07-2001 Fixed MVX (Maksimov)
-\ 11-05-2004 Fixed FDA and CMV (Serguei Jidkov) 
+\ 11-05-2004 Fixed FDA and CMV (Serguei Jidkov)
 
 \ CR .( Loading Intel Pentium MMX disassembler...)
 
@@ -34,7 +34,7 @@ WARNING 0!
 : UMIN 2DUP U< IF DROP ELSE NIP THEN ;
 : UMAX 2DUP U< IF NIP ELSE DROP THEN ;
 \ ==============================================
-\ отладка - поиск слова по адресу в его теле
+\ РѕС‚Р»Р°РґРєР° - РїРѕРёСЃРє СЃР»РѕРІР° РїРѕ Р°РґСЂРµСЃСѓ РІ РµРіРѕ С‚РµР»Рµ
 
 : WL_NEAR_NFA ( addr wid - addr nfa | addr 0 )
    CELL+ @
@@ -44,7 +44,7 @@ WARNING 0!
 ;
 
 : NEAR_NFA ( addr - nfa addr | 0 addr )
-   0 SWAP 
+   0 SWAP
    VOC-LIST
    BEGIN  @ DUP
    WHILE  DUP >R  WL_NEAR_NFA SWAP >R UMAX R>  R>
@@ -52,12 +52,12 @@ WARNING 0!
 ;
 
 
-\ Распечатать список словарей.
+\ Р Р°СЃРїРµС‡Р°С‚Р°С‚СЊ СЃРїРёСЃРѕРє СЃР»РѕРІР°СЂРµР№.
 : VOCS
         VOC-LIST
         BEGIN @ DUP WHILE
                 DUP CELL+ VOC-NAME.
-                DUP 3 CELLS + @ \ wid предка
+                DUP 3 CELLS + @ \ wid РїСЂРµРґРєР°
                 ?DUP IF ."  defined in "  VOC-NAME.
                      ELSE ."  is the main vocabulary"
                      THEN CR
@@ -107,11 +107,11 @@ WARNING 0!
 
 \ 94 TOOLS
 
-: .SN ( n --) \ Распечатать n верхних элементов стека
+: .SN ( n --) \ Р Р°СЃРїРµС‡Р°С‚Р°С‚СЊ n РІРµСЂС…РЅРёС… СЌР»РµРјРµРЅС‚РѕРІ СЃС‚РµРєР°
    >R BEGIN
          R@
       WHILE
-        SP@ R@ 1- CELLS + @ DUP 0< 
+        SP@ R@ 1- CELLS + @ DUP 0<
         IF DUP U>D <# #S #> TYPE
            ." (" ABS 0 <# #S [CHAR] - HOLD #> TYPE ." ) " ELSE . THEN
         R> 1- >R
@@ -119,30 +119,30 @@ WARNING 0!
 ;
 
 : .S ( -- ) \ 94 TOOLS
-\ Скопировать и показать значения, находящиеся на стеке данных. Формат зависит 
-\ от реализации.
-\ .S может быть реализовано с использованием слов форматного преобразования 
-\ чисел. Соответственно, он может испортить перемещаемую область, 
-\ идентифицируемую #>.
+\ РЎРєРѕРїРёСЂРѕРІР°С‚СЊ Рё РїРѕРєР°Р·Р°С‚СЊ Р·РЅР°С‡РµРЅРёСЏ, РЅР°С…РѕРґСЏС‰РёРµСЃСЏ РЅР° СЃС‚РµРєРµ РґР°РЅРЅС‹С…. Р¤РѕСЂРјР°С‚ Р·Р°РІРёСЃРёС‚
+\ РѕС‚ СЂРµР°Р»РёР·Р°С†РёРё.
+\ .S РјРѕР¶РµС‚ Р±С‹С‚СЊ СЂРµР°Р»РёР·РѕРІР°РЅРѕ СЃ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµРј СЃР»РѕРІ С„РѕСЂРјР°С‚РЅРѕРіРѕ РїСЂРµРѕР±СЂР°Р·РѕРІР°РЅРёСЏ
+\ С‡РёСЃРµР». РЎРѕРѕС‚РІРµС‚СЃС‚РІРµРЅРЅРѕ, РѕРЅ РјРѕР¶РµС‚ РёСЃРїРѕСЂС‚РёС‚СЊ РїРµСЂРµРјРµС‰Р°РµРјСѓСЋ РѕР±Р»Р°СЃС‚СЊ,
+\ РёРґРµРЅС‚РёС„РёС†РёСЂСѓРµРјСѓСЋ #>.
    DEPTH .SN
 ;
 
 : ? ( a-addr -- ) \ 94 TOOLS
-\ Показать значение, хранящееся по адресу a-addr.
-\ ? может быть реализован с использованием слов форматного преобразования 
-\ чисел. Соответственно, он может испортить перемещаемую область, 
-\ идентифицируемую #>.
+\ РџРѕРєР°Р·Р°С‚СЊ Р·РЅР°С‡РµРЅРёРµ, С…СЂР°РЅСЏС‰РµРµСЃСЏ РїРѕ Р°РґСЂРµСЃСѓ a-addr.
+\ ? РјРѕР¶РµС‚ Р±С‹С‚СЊ СЂРµР°Р»РёР·РѕРІР°РЅ СЃ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµРј СЃР»РѕРІ С„РѕСЂРјР°С‚РЅРѕРіРѕ РїСЂРµРѕР±СЂР°Р·РѕРІР°РЅРёСЏ
+\ С‡РёСЃРµР». РЎРѕРѕС‚РІРµС‚СЃС‚РІРµРЅРЅРѕ, РѕРЅ РјРѕР¶РµС‚ РёСЃРїРѕСЂС‚РёС‚СЊ РїРµСЂРµРјРµС‰Р°РµРјСѓСЋ РѕР±Р»Р°СЃС‚СЊ,
+\ РёРґРµРЅС‚РёС„РёС†РёСЂСѓРµРјСѓСЋ #>.
   @ .
 ;
 : AHEAD  \ 94 TOOLS EXT
-\ Интерпретация: семантика неопределена.
-\ Компиляция: ( C: -- orig )
-\ Положить место неразрешенной ссылки вперед orig на стек управления.
-\ Добавить семантику времени выполнения, данную ниже, к текущему определению.
-\ Семантика незавершена до тех пор, пока orig не разрешится (например,
-\ по THEN).
-\ Время выполнения: ( -- )
-\ Продолжить выполнение с позиции, заданной разрешением orig.
+\ РРЅС‚РµСЂРїСЂРµС‚Р°С†РёСЏ: СЃРµРјР°РЅС‚РёРєР° РЅРµРѕРїСЂРµРґРµР»РµРЅР°.
+\ РљРѕРјРїРёР»СЏС†РёСЏ: ( C: -- orig )
+\ РџРѕР»РѕР¶РёС‚СЊ РјРµСЃС‚Рѕ РЅРµСЂР°Р·СЂРµС€РµРЅРЅРѕР№ СЃСЃС‹Р»РєРё РІРїРµСЂРµРґ orig РЅР° СЃС‚РµРє СѓРїСЂР°РІР»РµРЅРёСЏ.
+\ Р”РѕР±Р°РІРёС‚СЊ СЃРµРјР°РЅС‚РёРєСѓ РІСЂРµРјРµРЅРё РІС‹РїРѕР»РЅРµРЅРёСЏ, РґР°РЅРЅСѓСЋ РЅРёР¶Рµ, Рє С‚РµРєСѓС‰РµРјСѓ РѕРїСЂРµРґРµР»РµРЅРёСЋ.
+\ РЎРµРјР°РЅС‚РёРєР° РЅРµР·Р°РІРµСЂС€РµРЅР° РґРѕ С‚РµС… РїРѕСЂ, РїРѕРєР° orig РЅРµ СЂР°Р·СЂРµС€РёС‚СЃСЏ (РЅР°РїСЂРёРјРµСЂ,
+\ РїРѕ THEN).
+\ Р’СЂРµРјСЏ РІС‹РїРѕР»РЅРµРЅРёСЏ: ( -- )
+\ РџСЂРѕРґРѕР»Р¶РёС‚СЊ РІС‹РїРѕР»РЅРµРЅРёРµ СЃ РїРѕР·РёС†РёРё, Р·Р°РґР°РЅРЅРѕР№ СЂР°Р·СЂРµС€РµРЅРёРµРј orig.
   HERE BRANCH, >MARK 2
 ; IMMEDIATE
 
@@ -287,9 +287,9 @@ C" NEAR_NFA" FIND NIP 0=
 : ?.NAME>S      ( CFA -- )
 \ ELIMINATE " 0X"
                 DUP   1 H.R>S SSPACE
-                NEAR_NFA 
+                NEAR_NFA
                 >R DUP
-                IF .S"  ( " DUP COUNT >S 
+                IF .S"  ( " DUP COUNT >S
                      NAME> R> - DUP
                      IF   DUP .S" +" NEGATE H.>S
                      THEN DROP        .S"  ) "
@@ -802,9 +802,9 @@ INH UD1 UD1
         REG32 ;
 
 : MV1   ( ADDR OP -- ADDR' )
-        .S" MOV     " 1 AND 
-        IF      16-BIT-DATA 
-                IF      .S" AX , " 
+        .S" MOV     " 1 AND
+        IF      16-BIT-DATA
+                IF      .S" AX , "
                 ELSE    .S" EAX , "
                 THEN
         ELSE    .S" AL , "
@@ -1528,11 +1528,11 @@ OPS  LOK ??? RPZ REP  HLT CMC F6. F6.  CLC STC CLI STI  CLD STD FE. FF.  \ F
         + 2+
 \       ."  C, " 1+ OVER + SWAP
 \       DO I C@ 2 H.R  ."  C, " LOOP
-\       COUNT  + 1+ 
+\       COUNT  + 1+
 ;
 
 : ZX".  ( ADDR -- ADDR' )
-  X". 3 + \ У az-строк счетчик 4 байта, что на три байта больше одного байта у с-строк и au-строк
+  X". 3 + \ РЈ az-СЃС‚СЂРѕРє СЃС‡РµС‚С‡РёРє 4 Р±Р°Р№С‚Р°, С‡С‚Рѕ РЅР° С‚СЂРё Р±Р°Р№С‚Р° Р±РѕР»СЊС€Рµ РѕРґРЅРѕРіРѕ Р±Р°Р№С‚Р° Сѓ СЃ-СЃС‚СЂРѕРє Рё au-СЃС‚СЂРѕРє
 ;
 
 [DEFINED] G. [IF]
@@ -1550,14 +1550,14 @@ OPS  LOK ??? RPZ REP  HLT CMC F6. F6.  CLC STC CLI STI  CLD STD FE. FF.  \ F
 [ELSE]
 
   : FLIT8.
-         CR DUP  BASE-ADDR - 6 H.R SPACE   
+         CR DUP  BASE-ADDR - 6 H.R SPACE
          ."  A; " DUP 8 OVER + SWAP
          DO I C@ 3 H.R ."  C," LOOP
          8 +
   ;
 
   : FLIT10. ( ADDR -- ADDR' )
-         CR DUP  BASE-ADDR - 6 H.R SPACE   
+         CR DUP  BASE-ADDR - 6 H.R SPACE
          ."  A; "  DUP 10 OVER + SWAP
          DO I C@ 3 H.R ."  C," LOOP
          10 +
@@ -1566,18 +1566,18 @@ OPS  LOK ??? RPZ REP  HLT CMC F6. F6.  CLC STC CLI STI  CLD STD FE. FF.  \ F
 [THEN]
 
 : VECT. ( ADDR -- ADDR' )
-       CR DUP  BASE-ADDR - 6 H.R SPACE   
+       CR DUP  BASE-ADDR - 6 H.R SPACE
        ."  A; " DUP @ 8 H.R DUP CELL+ SWAP @ ."  ,  \ " WordByAddr TYPE
 ;
 
 : CONS. ( ADDR -- )
-       CR DUP BASE-ADDR - 6 H.R SPACE   
+       CR DUP BASE-ADDR - 6 H.R SPACE
        ."  A; " @ 8 H.R ."  ,"
 ;
 
 : USER. ( ADDR -- )
        CR DUP  BASE-ADDR - 6 H.R SPACE
-       ."  A; " @ 8 H.R ."  , \ Relative in heap [hex]" \ CELL+ 
+       ."  A; " @ 8 H.R ."  , \ Relative in heap [hex]" \ CELL+
 ;
 
 : UVAL. ( ADDR -- ADDR' )
@@ -1585,9 +1585,9 @@ OPS  LOK ??? RPZ REP  HLT CMC F6. F6.  CLC STC CLI STI  CLD STD FE. FF.  \ F
        ."  A; " DUP @ 8 H.R ."  , \ Relative in heap [hex]" CELL+
 ;
 
-: CODE. ( ADDR -- )  
+: CODE. ( ADDR -- )
         DUP NextNFA
-        ?DUP 
+        ?DUP
         IF OVER - 5 -
         ELSE
            DUP DP @ SWAP - ABS DUP 512 > IF DROP 40 THEN \ no applicable end found
@@ -1596,7 +1596,7 @@ OPS  LOK ??? RPZ REP  HLT CMC F6. F6.  CLC STC CLI STI  CLD STD FE. FF.  \ F
         DUMP
 ;
 
-\ ### Поддержка плагина strings.spf
+\ ### РџРѕРґРґРµСЂР¶РєР° РїР»Р°РіРёРЅР° strings.spf
 [DEFINED] _AULIT [IF]
 
   : _ISLIT".  ( ADDR -- ADDR' )
@@ -1604,29 +1604,29 @@ OPS  LOK ??? RPZ REP  HLT CMC F6. F6.  CLC STC CLI STI  CLD STD FE. FF.  \ F
     DUP CELL- 1- CELL-   \ [ IS>AU / cell ] [ CALL / 1b ] [ CELL ]
     @ _ISLIT DUMP
   ;
-  
+
   : INST  ( ADR -- ADR' )
           DUP TO NEXT-INST
           COLS 0x29 <
           IF      DIS-OP
                   S-BUF COUNT TYPE
-          ELSE    DUP DIS-OP                                  
+          ELSE    DUP DIS-OP
                   OVER BASE-ADDR - 6  H.R SPACE
-                  DUP ROT 
+                  DUP ROT
                   2DUP - DUP>R 0x10 U> ABORT" DECOMPILER ERROR"
-                  DO I C@ 2 H.N LOOP                           
+                  DO I C@ 2 H.N LOOP
                   R> 5 < IF 9 EMIT THEN
                   9 EMIT S-BUF COUNT TYPE
           THEN    NEXT-INST C@ 0xE8 =
                   IF  NEXT-INST 1+ @+ SWAP +
                       CASE
-                      
+
                      ['] IS>AU OF _ISLIT". ENDOF
                      ['] IS>AZ OF _ISLIT". ENDOF
-                      
+
                      ['] _CLITERAL-CODE OF  X".   ENDOF
                      ['] _SLITERAL-CODE OF  X".   ENDOF
-                     ['] _ZLITERAL-CODE OF  ZX".   ENDOF                  
+                     ['] _ZLITERAL-CODE OF  ZX".   ENDOF
                      ['] _VECT-CODE     OF  VECT. 2DROP RDROP ENDOF
                      ['] _CONSTANT-CODE OF  CONS. DROP RDROP ENDOF
                      ['] _USER-CODE     OF  USER. DROP RDROP ENDOF
@@ -1644,11 +1644,11 @@ OPS  LOK ??? RPZ REP  HLT CMC F6. F6.  CLC STC CLI STI  CLD STD FE. FF.  \ F
           COLS 0x29 <
           IF      DIS-OP
                   S-BUF COUNT TYPE
-          ELSE    DUP DIS-OP                                  
+          ELSE    DUP DIS-OP
                   OVER BASE-ADDR - 6  H.R SPACE
-                  DUP ROT 
+                  DUP ROT
                   2DUP - DUP>R 0x10 U> ABORT" DECOMPILER ERROR"
-                  DO I C@ 2 H.N LOOP                           
+                  DO I C@ 2 H.N LOOP
                   R> 5 < IF 9 EMIT THEN
                   9 EMIT S-BUF COUNT TYPE
           THEN    NEXT-INST C@ 0xE8 =
@@ -1656,7 +1656,7 @@ OPS  LOK ??? RPZ REP  HLT CMC F6. F6.  CLC STC CLI STI  CLD STD FE. FF.  \ F
                       CASE
                      ['] _CLITERAL-CODE OF  X".   ENDOF
                      ['] _SLITERAL-CODE OF  X".   ENDOF
-                     ['] _ZLITERAL-CODE OF  ZX".   ENDOF                  
+                     ['] _ZLITERAL-CODE OF  ZX".   ENDOF
                      ['] _VECT-CODE     OF  VECT. 2DROP RDROP ENDOF
                      ['] _CONSTANT-CODE OF  CONS. DROP RDROP ENDOF
                      ['] _USER-CODE     OF  USER. DROP RDROP ENDOF
@@ -1678,7 +1678,7 @@ OPS  LOK ??? RPZ REP  HLT CMC F6. F6.  CLC STC CLI STI  CLD STD FE. FF.  \ F
 
 : FIND-REST-END ( xt -- addr | 0)
     DUP NextNFA DUP
-    IF 
+    IF
       NIP
       NAME>C 1- \ Skip CFA field
     ELSE
@@ -1688,7 +1688,7 @@ OPS  LOK ??? RPZ REP  HLT CMC F6. F6.  CLC STC CLI STI  CLD STD FE. FF.  \ F
     THEN
 
     BEGIN \ Skip alignment
-      DUP C@ 0= WHILE 1- 
+      DUP C@ 0= WHILE 1-
     REPEAT ;
 
 FORTH DEFINITIONS
@@ -1728,7 +1728,7 @@ VARIABLE  COUNT-LINE
                         \ We do not look for JMP's because there may be
                          \ a jump in a forth word
                         CR
-                        OVER 0= IF  NEXT-INST C@ 0xC3 <> 
+                        OVER 0= IF  NEXT-INST C@ 0xC3 <>
                                 ELSE 2DUP < INVERT
                                 THEN
                 WHILE   INST
