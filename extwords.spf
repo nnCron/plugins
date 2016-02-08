@@ -1,7 +1,7 @@
 \ Файл:       extwords.spf
 \ Автор:      VoidVolker
-\ Дата:       09:30 17/09/2015
-\ Версия:     1.73
+\ Дата:       15:03 08/02/2016
+\ Версия:     1.75
 \ Описание:   Сборник различных полезных слов
 
 \ SEARCH Fix (исправляет баг поиска в строках более 65535 байт)
@@ -107,9 +107,9 @@ WARNING !
     : StringGetPos { a1 u1  a2 u2 -- pos }
         a1 u1 a2 u2 SEARCH IF DROP a1 - 1+ ELSE 2DROP 0 THEN ;
     : CropFromString   \ ( a1 u1  a2 u2 -- a3 u3 ) \ Обрезать строку 1 начиная со строки 2
-        3 PICK >R  SEARCH IF DROP R@ - R> SWAP THEN ;
+        3 PICK >R  SEARCH IF DROP R@ - R@ SWAP THEN RDROP ;
     : CropAfterString   \ ( a u a1 u1 -- a2 u2 ) \ Обрезать строку 1 после строки 2
-        DUP >R 3 PICK >R  SEARCH IF DROP R@ - R> SWAP R> + THEN ;
+        DUP >R 3 PICK >R  SEARCH IF DROP R@ - R> SWAP R> + ELSE RDROP RDROP THEN ;
 
     : CharReplace   \ ( a u char1 char2 -- a u ) \ Заменить в строке символ 1 на символ 2 и оставить строку на стеке
         2OVER OVER + SWAP ?DO  \ a u char1 char2
@@ -119,11 +119,11 @@ WARNING !
     ;
 
     : CropFromStringEnd   \ ( a1 u1  a2 u2 -- a3 u3 ) \ Обрезать строку 1 начиная со строки 2 для первого совпадения с конца строки
-        3 PICK >R  BACK-SEARCH IF DROP R@ - R> SWAP THEN
+        3 PICK >R  BACK-SEARCH IF DROP R@ - R@ SWAP THEN RDROP
     ;
 
     : CropAfterStringEnd   \ ( a u a1 u1 -- a2 u2 ) \ Обрезать строку 1 после строки 2 для первого совпадения с конца строки
-        DUP >R 3 PICK >R  BACK-SEARCH IF DROP R@ - R> SWAP R> + THEN
+        DUP >R 3 PICK >R  BACK-SEARCH IF DROP R@ - R> SWAP R> + ELSE RDROP RDROP THEN
     ;
 
     : StringSplit   { a u a1 u1 -- a2 u2 a3 u3 TRUE | a u a1 u1 FALSE }
