@@ -1,7 +1,7 @@
 \ Файл:       extwords.spf
 \ Автор:      VoidVolker
-\ Дата:       15/02/2014 18:27
-\ Версия:     1.77
+\ Дата:       22/02/2016 21:34
+\ Версия:     1.78
 \ Описание:   Сборник различных полезных слов
 
 \ ### Константы
@@ -125,6 +125,19 @@
         THEN
     ;
 
+    : StringSplitBack   { a u a1 u1 -- a2 u2 a3 u3 TRUE | a u a1 u1 FALSE }
+        a u a1 u1 BACK-SEARCH IF
+            OVER a - a SWAP   \ a4 u4 a2 u2
+            2SWAP       \ a2 u2 a4 u4
+            u1 - SWAP u1 + SWAP \  a2 u2 a3 u3
+            TRUE
+        ELSE
+            2DROP
+            a u a1 u1
+            FALSE
+        THEN
+    ;
+
     : GET-SUBST { a0 u0 a1 u1 a2 u2 -- a3 u3 | a0 u0 } \ Получить подстроку a3 u3 из строки a0 u0, ограниченную a1 u1 и a2 u2. Если подстрока не найдена - вернуть пустую строку.
         a0 u0 a1 u1 SEARCH
         IF
@@ -188,6 +201,7 @@
     : SCONSTANT   \ ( " имя" " любой текст до конца строки" -> ) ( -- a u ) \ Строковая константа
         : 0 PARSE [COMPILE] SLITERAL POSTPONE ;      \ ]
     ;
+
 \ # Строковый CASE
     : SCASE ( -> )
         !CSP
@@ -246,18 +260,32 @@
 
 \ ### Печать в консоли
     : .B   \ ( num -- )  \ Распечатать число со стека в бинарной системе счисления
-        BASE @ SWAP 2 BASE ! . BASE ! ;
+        BASE @ SWAP 2 BASE !
+        S>D <#
+            BL HOLD # # # #
+            BL HOLD # # # #
+            BL HOLD
+            BL HOLD # # # #
+            BL HOLD # # # #
+            BL HOLD
+            BL HOLD # # # #
+            BL HOLD # # # #
+            BL HOLD
+            BL HOLD # # # #
+            BL HOLD # # # #
+        #> TYPE
+        BASE ! ;
     : .D   \ ( num -- )  \ Распечатать число со стека в десятичной системе счисления
         BASE @ SWAP DECIMAL . BASE ! ;
     : .H   \ ( num -- )  \ Распечатать число со стека в шестнадцатиричной системе счисления
-        BASE @ SWAP HEX . BASE !
+        BASE @ SWAP HEX
+        S>D <# BL HOLD # # # # # # # # #> TYPE
+        BASE !
     ;
 
     : PRINT   \ ( az -- ) \ Распечатать az строку
-        BEGIN DUP C@ DUP WHILE
-          EMIT 1+
-        REPEAT
-        2DROP
+        DUP BEGIN DUP C@ WHILE 1+ REPEAT \ a u
+        OVER - TYPE
     ;
 
 \ ### Печать стека
@@ -317,7 +345,7 @@
     : WinActivate   ( hwnd -- )
         DUP PUSH-WINDOW DROP \ TO active-window#
         DUP IsIconic
-        IF 9 SWAP ShowWindow DROP ELSE DROP THEN \ #define SW_RESTORE 9
+        IF 9 SWAP ShowWindow THEN DROP \ #define SW_RESTORE 9
     ;
 
 \ ### Потоки
