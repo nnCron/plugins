@@ -348,6 +348,16 @@
         IF 9 SWAP ShowWindow THEN DROP \ #define SW_RESTORE 9
     ;
 
+\ ### Запуск файлов и ярлыков
+    : START-FILE   \ ( a u -- )
+        S>ZALLOC >R
+        5 0 0 R>  Z" open" 0 ShellExecuteA DROP
+    ;
+
+    : START-FILE:
+        to-eol, START-FILE
+    ;
+
 \ ### Потоки
     : STOP-THEARD   \ ( tid -- ) \ Остановить поток с идентификатором tid
         ?DUP IF
