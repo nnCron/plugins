@@ -1,7 +1,7 @@
 \ Файл:       registry.spf
 \ Автор:      VoidVolker
-\ Дата:       05/11/2011 21:01
-\ Версия:     1.1
+\ Дата:       18/06/2018 16:41
+\ Версия:     1.2
 \ Описание:   Работа с реестром: чтение/запись, удаление значений/ключей.
 
 MODULE: REGISTRY_MODULE
@@ -13,6 +13,8 @@ MODULE: REGISTRY_MODULE
   \ Значение          Вся доступная память (последний формат); 1 МБ (стандартный формат)
   \ Дерево            Максимум 512 уровней. За один апи-вызов можно сосздать не более 32-ух уронвей.
 
+EXPORT
+
   0x80000000 CONSTANT HKEY_CLASSES_ROOT           HKEY_CLASSES_ROOT        CONSTANT HKCR
   0x80000001 CONSTANT HKEY_CURRENT_USER           HKEY_CURRENT_USER        CONSTANT HKCU
   0x80000002 CONSTANT HKEY_LOCAL_MACHINE          HKEY_LOCAL_MACHINE       CONSTANT HKLM
@@ -22,6 +24,8 @@ MODULE: REGISTRY_MODULE
   0x80000060 CONSTANT HKEY_PERFORMANCE_NLSTEXT    HKEY_PERFORMANCE_NLSTEXT CONSTANT HKPN
   0x80000005 CONSTANT HKEY_CURRENT_CONFIG         HKEY_CURRENT_CONFIG      CONSTANT HKCC
   0x80000006 CONSTANT HKEY_DYN_DATA               HKEY_DYN_DATA            CONSTANT HKDD
+
+DEFINITIONS
 
   0x103 CONSTANT ERROR_NO_MORE_ITEMS
   0xEA  CONSTANT ERROR_MORE_DATA
@@ -48,6 +52,8 @@ MODULE: REGISTRY_MODULE
   \ !define KEY_QUERY_VALUE          0x0001
   \ !define KEY_ENUMERATE_SUB_KEYS   0x0008
 
+EXPORT
+
   0 CONSTANT REG_NONE                 REG_NONE                CONSTANT RK-NONE
   1 CONSTANT REG_SZ                   REG_SZ                  CONSTANT RK-SZ
   2 CONSTANT REG_EXPAND_SZ            REG_EXPAND_SZ           CONSTANT RK-ESZ
@@ -57,6 +63,23 @@ MODULE: REGISTRY_MODULE
   5 CONSTANT REG_DWORD_BIG_ENDIAN     REG_DWORD_BIG_ENDIAN    CONSTANT RK-DWBE
   6 CONSTANT REG_LINK                 REG_LINK                CONSTANT RK-LINK
   7 CONSTANT REG_MULTI_SZ             REG_MULTI_SZ            CONSTANT RK-MSZ
+
+  : REG-TYPE2STR   \ ( type -- a u )
+    CASE
+      RK-NONE   OF S" NONE" ENDOF
+      RK-SZ     OF S" SZ" ENDOF
+      RK-ESZ    OF S" EXPAND_SZ" ENDOF
+      RK-BIN    OF S" BINARY" ENDOF
+      RK-DW     OF S" DWORD" ENDOF
+      RK-DWLE   OF S" DWORD_LITTLE_ENDIAN" ENDOF
+      RK-DWBE   OF S" DWORD_BIG_ENDIAN" ENDOF
+      RK-LINK   OF S" LINK" ENDOF
+      RK-MSZ    OF S" MULTI_SZ" ENDOF
+      DUP       OF S" UNKNOWN" ENDOF
+    ENDCASE
+  ;
+
+DEFINITIONS
 
   \ 0xF003F CONSTANT KEY_ALL_ACCESS
   \ 0x0020 CONSTANT KEY_CREATE_LINK
