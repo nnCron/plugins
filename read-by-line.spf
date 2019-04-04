@@ -1,8 +1,9 @@
 \ Файл:       read-by-line.spf
 \ Автор:      VoidVolker
-\ Дата:       14:25 11/08/15
-\ Версия:     2.0
+\ Дата:       19:25 04/04/19
+\ Версия:     2.1
 \ Описание:   Построчное чтение и обработка файлов и строк. С чтением файла как с диска так и с предзагрузкой в ОЗУ.
+\ Требования:
 
 USER-VALUE LINE-NUMBER
 
@@ -11,7 +12,6 @@ MODULE: READ-BY-LINE-MODULE
     USER-VALUE fEND
     USER-VALUE Lc
     USER-VALUE Lu
-    USER-CREATE rblStartOffset 2 CELLS USER-ALLOT
 
     : (READ-BY-LINE) { xt \ Lf -- }  ( a u xt -- )
         fEND >R     \ Сохраняем переменные (для вложенных случаев)
@@ -19,28 +19,13 @@ MODULE: READ-BY-LINE-MODULE
         Lu >R
         LINE-NUMBER >R
 
-        R/O OPEN-FILE-SHARED THROW TO Lf
-
-        rblStartOffset 2@ D0<> IF
-            Lf FILE-SIZE THROW
-            rblStartOffset 2@
-            2OVER
-            D> IF
-                rblStartOffset 2@ D0< IF
-                    D+
-                ELSE
-                    DROP
-                THEN
-                Lf REPOSITION-FILE THROW
-            ELSE
-                2DROP
-            THEN
-        THEN
-
         -1 TO fEND
         1 TO LINE-NUMBER
         10248   \ максимальная длина строки (в символах)
-        ALLOCATE THROW TO Lc
+        ALLOCATE THROW
+
+        TO Lc
+        R/O OPEN-FILE-SHARED THROW TO Lf
 
         BEGIN Lc 10238 Lf READ-LINE THROW
             fEND AND WHILE  \ Выход по команде
@@ -58,7 +43,6 @@ MODULE: READ-BY-LINE-MODULE
         R> TO Lc
         R> TO fEND  \ Восстанавливаем переменные
     ;
-
 
     USER-VALUE leA
     USER-VALUE leU
@@ -265,6 +249,7 @@ EXPORT
     : FOUND-LINE   \ ( -- a u ) \ Найденная строка
        Lc Lu
     ;
+
 
     : READ-BY-LINE \ compile: ( -- ) \ Построчное чтение файла с диска
                 \  execute: ( a u --)
