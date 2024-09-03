@@ -1,1 +1,1 @@
-*.spf linguist-language=Forth text eol=crlf
+*.spf text eol=crlf linguist-language=Forth
