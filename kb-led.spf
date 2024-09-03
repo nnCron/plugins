@@ -38,19 +38,19 @@ EXPORT
    2 CONSTANT Num    \ KEYBOARD_NUM_LOCK_ON
    1 CONSTANT Scroll \ KEYBOARD_SCROLL_LOCK_ON
 
-  : LedOn ( Led --  )  \ Ð’ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ Ð¸Ð½Ð´Ð¸ÐºÐ°Ñ‚Ð¾Ñ€
+  : LedOn ( Led --  )  \ Âêëþ÷èòü èíäèêàòîð
     KbdPs2DeviceOpen DUP >R KbdPs2LedGetAll DROP OR
     R@ KbdPs2LedSetAll R> CloseHandle
     2DROP
   ;
 
-  : LedOff ( Led -- )  \ Ð’Ñ‹ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ Ð¸Ð½Ð´Ð¸ÐºÐ°Ñ‚Ð¾Ñ€
+  : LedOff ( Led -- )  \ Âûêëþ÷èòü èíäèêàòîð
     INVERT KbdPs2DeviceOpen DUP >R KbdPs2LedGetAll DROP AND
     R@ KbdPs2LedSetAll R> CloseHandle
     2DROP
   ;
 
-  : LedOn? ( Led -- ? )  \ Ð’ÐµÑ€Ð½ÑƒÑ‚ÑŒ ÑÐ¾ÑÑ‚Ð¾ÑÐ½Ð¸Ðµ Ð¸Ð½Ð´Ð¸ÐºÐ°Ñ‚Ð¾Ñ€Ð°
+  : LedOn? ( Led -- ? )  \ Âåðíóòü ñîñòîÿíèå èíäèêàòîðà
     KbdPs2DeviceOpen DUP >R KbdPs2LedGetAll >R AND R> R> CloseHandle 2DROP 0<>
   ;
 

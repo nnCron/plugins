@@ -1,10 +1,9 @@
-\ Р¤Р°Р№Р»:       arcfour.spf
-\ РђРІС‚РѕСЂ:      VoidVolker
-\ Р”Р°С‚Р°:       08/01/2012 13:22
-\ Р’РµСЂСЃРёСЏ:     1.0
-\ РћРїРёСЃР°РЅРёРµ:   РЁРёС„СЂРѕРІР°РЅРёРµ РїРѕ Р°Р»РіРѕСЂРёС‚РјСѓ arcfour. РСЃРїРѕР»СЊР·РѕРІР°РЅР° Р±РёР±Р»РёРѕС‚РµРєР° http://home.earthlink.net/~neilbawd/arcfour.txt
-\ РџСЂРёРјРµСЂ:
-\ S" РўРµСЃС‚ С€РёС„СЂРѕРІР°РЅРёСЏ РїРѕ Р°Р»РіРѕСЂРёС‚РјСѓ arcfour" S" password" ARC4 2DUP TYPE CR S" password" ARC4 TYPE CR
+\ Файл:       arcfour.spf
+\ Автор:      VoidVolker
+\ Дата:       08/01/2012 13:22
+\ Описание:   Шифрование по алгоритму arcfour. Использована библиотека http://home.earthlink.net/~neilbawd/arcfour.txt
+\ Пример:
+\ S" Тест шифрования по алгоритму arcfour" S" password" ARC4 2DUP TYPE CR S" password" ARC4 TYPE CR
 
 MODULE: ARCFOUR_MODULE
 
@@ -92,7 +91,7 @@ MODULE: ARCFOUR_MODULE
 \  temp = S[S[i]+S[j]]
 \  return char xor temp
 
-\ Insignificant mods to Neil Bawd's code were made for
+\ Insignificant mods to Neil Bawd's code were made for 
 \   use under kForth -- Krishna Myneni, 2002-04-26
 
   VARIABLE &I   VARIABLE &J
@@ -151,13 +150,13 @@ MODULE: ARCFOUR_MODULE
 EXPORT
 
   : ARC4   \ ( a u akey ukey -- a_arc4 u_arc4 )
-    2 PICK 0<>  OVER 0<> AND   \ Р—Р°С‰РёС‚Р° РѕС‚ РїСѓСЃС‚С‹С… СЃС‚СЂРѕРє
+    2 PICK 0<>  OVER 0<> AND   \ Защита от пустых строк
     IF
       2OVER 2SWAP
-      ARCFOUR-INIT                            \ РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј РєР»СЋС‡
-      OVER + SWAP DO I C@ ARCFOUR I C! LOOP   \ РЁРёС„СЂСѓРµРј СЃС‚СЂРѕРєСѓ
-      &S 256 ERASE  &I OFF &J OFF             \ РћС‡РёС‰Р°РµРј РєР»СЋС‡ Рё РїРµСЂРµРјРµРЅРЅС‹Рµ
-    ELSE
+      ARCFOUR-INIT                            \ Инициализируем ключ
+      OVER + SWAP DO I C@ ARCFOUR I C! LOOP   \ Шифруем строку
+      &S 256 ERASE  &I OFF &J OFF             \ Очищаем ключ и переменные
+    ELSE 
       2DROP 2DROP S" "
     THEN
   ;

@@ -1,18 +1,18 @@
-\ Р¤Р°Р№Р»[File]:             tc-menu.spf
-\ РђРІС‚РѕСЂ[Author]:          VoidVolker
-\ Р”Р°С‚Р°[Date]:             08/02/2010 18:12
-\ РћРїРёСЃР°РЅРёРµ[Description]:  РЎРѕР·РґР°РЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёС… РјРµРЅСЋ РґР»СЏ Total Commander.
+\ Файл[File]:             tc-menu.spf
+\ Автор[Author]:          VoidVolker
+\ Дата[Date]:             08/02/2010 18:12
+\ Описание[Description]:  Создание пользовательских меню для Total Commander.
 
-\ РСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ.
+\ Использование.
 
-\ TcMenu: <РќР°Р·РІР°РЅРёРµ РјРµРЅСЋ СЃ Р»СЋР±С‹РјРё СЃРёРјРІРѕР»Р°РјРё РґРѕ РєРѕРЅС†Р° СЃС‚СЂРѕРєРё>
+\ TcMenu: <Название меню с любыми символами до конца строки>
 \ NewItem
 \ S" path\program.exe" TcmButton
 \ S" path\program.exe" TcmCmd
 \ S" path\" TcmPath
 \ S" 0" TcmIconic
-\ S" РџСЂРѕРіСЂР°РјРјР°" TcmMenu
-\ S" C:\<РїСѓС‚СЊ Рє TC>\my-menu.bar" TcMenuSave
+\ S" Программа" TcmMenu
+\ S" C:\<путь к TC>\my-menu.bar" TcMenuSave
 
 
 MODULE: TCM_MODULE
@@ -34,12 +34,12 @@ MODULE: TCM_MODULE
 
 EXPORT
 
-  : TcMenu:  \ ( <РќР°Р·РІР°РЅРёРµ РјРµРЅСЋ РґРѕ РєРѕРЅС†Р° СЃС‚СЂРѕРєРё> -> )
+  : TcMenu:  \ ( <Название меню до конца строки> -> )
     0 PARSE [COMPILE] SLITERAL
     POSTPONE tc-init
   ; IMMEDIATE
 
-  : TcMenuSave   \ ( a u -- ) \ a u - РїСѓС‚СЊ РґР»СЏ СЃРѕС…СЂР°РЅРµРЅРёСЏ РјРµРЅСЋ
+  : TcMenuSave   \ ( a u -- ) \ a u - путь для сохранения меню
     S" [Buttonbar]" CRLF S+
     S" Buttoncount=" S+ tcm-bc @ N>S S+ CRLF S+
     S" button1=totalcmd.exe,10" S+ CRLF S+
@@ -52,7 +52,7 @@ EXPORT
     2SWAP FWRITE
   ;
 
-  : NewItem   \ ( -- ) \ РќР°С‡Р°С‚СЊ СЃРѕР·РґР°РЅРёРµ РЅРѕРІРіРѕ РїСѓРЅРєС‚Р° РјРµРЅСЋ - РІС‹Р·С‹РІР°С‚СЊ РєР°Р¶РґС‹Р№ СЂР°Р· РїРµСЂРµРґ РґРѕР±Р°РІР»РµРЅРёРµРј РЅРѕРІРѕРіРѕ РїСѓРЅРєС‚Р°
+  : NewItem   \ ( -- ) \ Начать создание новго пункта меню - вызывать каждый раз перед добавлением нового пункта
     1 tcm-bc +!
   ;
 

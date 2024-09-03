@@ -1,10 +1,10 @@
-\ Р¤Р°Р№Р»:       file-attributes.spf
-\ РђРІС‚РѕСЂ:      VoidVolker
-\ Р”Р°С‚Р°:       25/08/2013 09:40
-\ Р’РµСЂСЃРёСЏ:     1.01
-\ РћРїРёСЃР°РЅРёРµ:   РЈСЃС‚Р°РЅРѕРІРєР° Рё РїСЂРѕРІРµСЂРєР° Р°Р±СЃРѕР»СЋС‚РЅРѕ РІСЃРµС… Р°С‚С‚СЂРёР±СѓС‚РѕРІ С„Р°Р№Р»РѕРІ
+\ Файл:       file-attributes.spf
+\ Автор:      VoidVolker
+\ Дата:       25/08/2013 09:40
+\ Версия:     1.01
+\ Описание:   Установка и проверка абсолютно всех аттрибутов файлов
 
-\ * РљРѕРЅСЃС‚Р°РЅС‚С‹ Р°С‚С‚СЂРёР±СѓС‚РѕРІ С„Р°Р№Р»РѕРІ - РїРµСЂРІС‹Рµ РїСЏС‚СЊ Р·Р°РєРѕРјРјРµРЅС‚РёСЂРѕРІР°РЅРЅС‹С… СѓР¶Рµ РµСЃС‚СЊ РІ РЅРЅРєСЂРѕРЅРµ, РїРѕСЃР»РµРґРЅСЏСЏ - РЅРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ
+\ * Константы аттрибутов файлов - первые пять закомментированных уже есть в ннкроне, последняя - не используется
 \ 0x20    CONSTANT FILE_ATTRIBUTE_ARCHIVE
 0x800   CONSTANT FILE_ATTRIBUTE_COMPRESSED    \ To set a file's compression state, use the DeviceIoControl function with the FSCTL_SET_COMPRESSION operation.
 0x40    CONSTANT FILE_ATTRIBUTE_DEVICE
@@ -27,13 +27,13 @@ WINAPI: DeviceIoControl KERNEL32.DLL
 0x0009C040  CONSTANT FSCTL_SET_COMPRESSION
 \ 0x0000      CONSTANT COMPRESSION_FORMAT_NONE
 \ 0x0001      CONSTANT COMPRESSION_FORMAT_DEFAULT
-\ 0x0002      CONSTANT COMPRESSION_FORMAT_LZNT1   \ Рў.Рє. РµРґРёРЅСЃС‚РІРµРЅРЅС‹Р№ РІР°СЂРёР°РЅС‚ - СЌС‚РѕС‚ С„РѕСЂРјР°С‚ СЃР¶Р°С‚РёСЏ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РІСЃРµРіРґР°
+\ 0x0002      CONSTANT COMPRESSION_FORMAT_LZNT1   \ Т.к. единственный вариант - этот формат сжатия используется всегда
 
-\ * РЈСЃС‚Р°РЅРѕРІРєР° Р°С‚С‚СЂРёР±СѓС‚РѕРІ
+\ * Установка аттрибутов
 : SET-ARCHIVE    \ ( a u -- )
   S>ZTEMP FILE_ATTRIBUTE_ARCHIVE SWAP SetFileAttributesA DROP ;
 : SET-COMPRESSED    \ ( a u -- )
-  R/W OPEN-FILE IF DROP EXIT THEN  \ РћС‚РєСЂС‹РІР°РµРј С„Р°Р№Р» РІ СЂРµР¶РёРјРµ Р·Р°РїРёСЃРё, РёРЅР°С‡Рµ - РІС‹С…РѕРґРёРј
+  R/W OPEN-FILE IF DROP EXIT THEN  \ Открываем файл в режиме записи, иначе - выходим
   >R
   1 PAD !           \ COMPRESSION_FORMAT_DEFAULT
   PAD CELL+ OFF
@@ -79,7 +79,7 @@ WINAPI: DeviceIoControl KERNEL32.DLL
   S>ZTEMP FILE_ATTRIBUTE_TEMPORARY SWAP SetFileAttributesA DROP ;
 
 
-\ * РџСЂРѕРІРµСЂРєР° Р°С‚С‚СЂРёР±СѓС‚РѕРІ С„Р°Р№Р»Р°
+\ * Проверка аттрибутов файла
 : FILE-ARCHIVE?    \ ( a u -- ? )
   S>ZTEMP GetFileAttributesA FILE_ATTRIBUTE_ARCHIVE AND 0<> ;
 : FILE-COMPRESSED?    \ ( a u -- ? )
@@ -114,7 +114,7 @@ WINAPI: DeviceIoControl KERNEL32.DLL
   S>ZTEMP GetFileAttributesA FILE_ATTRIBUTE_TEMPORARY AND 0<> ;
 
 
-\ * РџСЂРѕРІРµСЂРєР° Р°С‚С‚СЂРёР±СѓС‚РѕРІ С„Р°Р№Р»Р° РІ С†РёРєР»Р° FOR-FILES
+\ * Проверка аттрибутов файла в цикла FOR-FILES
 \ : IS-ARCHIVE?   \ ( -- ? )
 \   FILE_ATTRIBUTE_ARCHIVE FF-ATTRIB? ;
 : IS-COMPRESSED?   \ ( -- ? )
